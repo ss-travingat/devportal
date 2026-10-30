@@ -1,0 +1,18 @@
+[
+  {
+    "purpose": "Dev portal server",
+    "name": "Dev portal server",
+    "vendor": "Vercel",
+    "amount": "20.00",
+    "currency": "USD",
+    "billingFrequency": "Monthly",
+    "nextBillingDate": "2026-12-21",
+    "owner": "Ravi",
+    "ownerEmail": "travingat@gmail.com",
+    "notificationRecipients": "travingat@gmail.com",
+    "status": "Active",
+    "id": "sub-1793369777569",
+    "createdAt": "2026-10-30T14:16:17.569Z",
+    "updatedAt": "2026-10-30T14:16:17.569Z"
+  }
+]
