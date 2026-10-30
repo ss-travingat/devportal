@@ -1,0 +1,51 @@
+[
+  {
+    "id": "med-1",
+    "name": "hero-explorer-banner.webp",
+    "type": "image",
+    "size": "1.4 MB",
+    "dimensions": "2880x1400",
+    "url": "https://cdn.travingat.com/banners/hero-explorer-banner.webp",
+    "bucket": "travingat-prod-media",
+    "category": "Banners",
+    "uploadedAt": "2026-10-28",
+    "format": "WEBP"
+  },
+  {
+    "id": "med-2",
+    "name": "explorer-card-classic-template.png",
+    "type": "image",
+    "size": "850 KB",
+    "dimensions": "1200x675",
+    "url": "https://cdn.travingat.com/cards/explorer-card-classic-template.png",
+    "bucket": "travingat-prod-media",
+    "category": "Cards",
+    "uploadedAt": "2026-10-25",
+    "format": "PNG"
+  },
+  {
+    "id": "med-3",
+    "name": "creator-showcase-teaser.mp4",
+    "type": "video",
+    "size": "14.8 MB",
+    "dimensions": "1920x1080",
+    "url": "https://cdn.travingat.com/videos/creator-showcase-teaser.mp4",
+    "bucket": "travingat-prod-media",
+    "category": "Videos",
+    "uploadedAt": "2026-10-22",
+    "format": "MP4"
+  },
+  {
+    "id": "med-4",
+    "name": "travingat-logo-vector.svg",
+    "type": "image",
+    "size": "12 KB",
+    "dimensions": "Vector",
+    "url": "https://cdn.travingat.com/brand/travingat-logo-vector.svg",
+    "bucket": "travingat-prod-media",
+    "category": "Branding",
+    "uploadedAt": "2026-10-18",
+    "format": "SVG"
+  }
+]
+
