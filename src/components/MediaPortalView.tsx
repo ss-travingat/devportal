@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo } from 'react';
 import {
-  Image,
+  Image as ImageIcon,
   Film,
   File,
   Copy,
@@ -180,7 +180,7 @@ export default function MediaPortalView({
                   <div className="flex items-center justify-between mb-3">
                     <div className="p-2 bg-zinc-800 border border-zinc-700 rounded-md">
                       {isImage ? (
-                        <Image className="w-4 h-4 text-zinc-200" />
+                        <ImageIcon className="w-4 h-4 text-zinc-200" />
                       ) : isVideo ? (
                         <Film className="w-4 h-4 text-zinc-200" />
                       ) : (

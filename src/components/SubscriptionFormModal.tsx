@@ -133,7 +133,24 @@ export default function SubscriptionFormModal({
 
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const formBodyRef = useRef<HTMLDivElement>(null);
   const configuredTimezone = 'UTC (Business Default)';
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isSubmitting) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, isSubmitting, onClose]);
 
   if (!isOpen) return null;
 
@@ -148,6 +165,7 @@ export default function SubscriptionFormModal({
         }
       }
       setErrors(newErrors);
+      formBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return false;
     }
     setErrors({});
@@ -187,12 +205,24 @@ export default function SubscriptionFormModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm overflow-y-auto">
-      <div className="relative w-full max-w-3xl my-8 bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl text-white">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isSubmitting) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-3xl max-h-[90vh] bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl text-white flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="subscription-form-modal-title"
+      >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-6 py-4 sm:py-5 border-b border-zinc-800 shrink-0 bg-zinc-900">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight text-white">
+            <h2 id="subscription-form-modal-title" className="text-xl font-semibold tracking-tight text-white">
               {subscriptionToEdit ? 'Edit Subscription Record' : 'Create Subscription Record'}
             </h2>
             <p className="text-xs text-zinc-400 mt-0.5">
@@ -200,6 +230,7 @@ export default function SubscriptionFormModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
             aria-label="Close modal"
@@ -208,13 +239,14 @@ export default function SubscriptionFormModal({
           </button>
         </div>
 
-        {/* Form Body */}
-        <form onSubmit={handleSubmit} className="px-6 py-5 space-y-6">
-          {/* Section 1: Core Service Info */}
-          <div>
-            <h3 className="text-xs uppercase font-medium tracking-wider text-zinc-400 mb-3">
-              1. Service Identification
-            </h3>
+        {/* Form Body & Footer */}
+        <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
+          <div ref={formBodyRef} className="px-6 py-5 space-y-6 overflow-y-auto flex-1 min-h-0">
+            {/* Section 1: Core Service Info */}
+            <div>
+              <h3 className="text-xs uppercase font-medium tracking-wider text-zinc-400 mb-3">
+                1. Service Identification
+              </h3>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Purpose */}
               <DelayedHoverContext context="Human-readable label defining the service purpose.">
@@ -551,9 +583,10 @@ export default function SubscriptionFormModal({
               </span>
             </div>
           </div>
+          </div>
 
-          {/* Footer buttons */}
-          <div className="flex items-center justify-end gap-3 pt-4 border-t border-zinc-800">
+          {/* Footer buttons (Pinned) */}
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm shrink-0">
             <button
               type="button"
               onClick={onClose}

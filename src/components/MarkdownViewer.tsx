@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useRef, useState, useId } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
@@ -14,7 +14,8 @@ function MermaidBlock({ code }: { code: string }) {
   const ref = useRef<HTMLDivElement>(null);
   const [svg, setSvg] = useState<string>('');
   const [error, setError] = useState<string>('');
-  const idRef = useRef(`mermaid-${Math.random().toString(36).slice(2)}`);
+  const rawId = useId();
+  const mermaidId = `mermaid-${rawId.replace(/:/g, '')}`;
 
   useEffect(() => {
     let cancelled = false;
@@ -41,7 +42,7 @@ function MermaidBlock({ code }: { code: string }) {
             fontFamily: 'ui-sans-serif, system-ui, sans-serif',
           },
         });
-        const { svg: rendered } = await mermaid.render(idRef.current, code);
+        const { svg: rendered } = await mermaid.render(mermaidId, code);
         if (!cancelled) setSvg(rendered);
       } catch (err) {
         if (!cancelled) setError(String(err));
@@ -49,7 +50,7 @@ function MermaidBlock({ code }: { code: string }) {
     }
     render();
     return () => { cancelled = true; };
-  }, [code]);
+  }, [code, mermaidId]);
 
   if (error) {
     return (

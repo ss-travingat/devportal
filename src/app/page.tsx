@@ -13,7 +13,6 @@ import {
   Gauge,
   ExternalLink,
   Film,
-  HardDrive,
 } from 'lucide-react';
 import { Subscription, SubscriptionFormData } from '@/types/subscription';
 import { DocMeta, DocDetail } from '@/types/docs';

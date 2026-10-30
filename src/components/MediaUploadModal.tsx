@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useRef } from 'react';
-import { X, Upload, Plus, File, Image, Film, CheckCircle2 } from 'lucide-react';
+import React, { useState, useRef, useEffect } from 'react';
+import { X, Upload, Plus, File, Image as ImageIcon, Film, CheckCircle2 } from 'lucide-react';
 import { MediaAsset, MediaType } from '@/types/media';
 
 interface MediaUploadModalProps {
@@ -22,6 +22,22 @@ export default function MediaUploadModal({
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadComplete, setUploadComplete] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && !isUploading) {
+        onClose();
+      }
+    };
+    if (isOpen) {
+      window.addEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'hidden';
+    }
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen, isUploading, onClose]);
 
   if (!isOpen) return null;
 
@@ -121,10 +137,21 @@ export default function MediaUploadModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150">
-      <div className="relative w-full max-w-xl bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col">
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
+      onClick={(e) => {
+        if (e.target === e.currentTarget && !isUploading) {
+          onClose();
+        }
+      }}
+    >
+      <div
+        className="relative w-full max-w-xl max-h-[90vh] bg-zinc-900 border border-zinc-800 rounded-xl shadow-2xl overflow-hidden flex flex-col animate-in zoom-in-95 duration-150"
+        role="dialog"
+        aria-modal="true"
+      >
         {/* Modal Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 shrink-0 bg-zinc-900">
           <div>
             <h2 className="text-lg font-bold text-white flex items-center gap-2">
               <Upload className="w-4 h-4 text-zinc-300" />
@@ -135,6 +162,7 @@ export default function MediaUploadModal({
             </p>
           </div>
           <button
+            type="button"
             onClick={onClose}
             disabled={isUploading}
             className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
@@ -223,7 +251,7 @@ export default function MediaUploadModal({
                     >
                       <div className="flex items-center gap-2.5 truncate max-w-[80%]">
                         {isImg ? (
-                          <Image className="w-4 h-4 text-zinc-400 shrink-0" />
+                          <ImageIcon className="w-4 h-4 text-zinc-400 shrink-0" />
                         ) : isVid ? (
                           <Film className="w-4 h-4 text-zinc-400 shrink-0" />
                         ) : (
@@ -279,7 +307,7 @@ export default function MediaUploadModal({
         </div>
 
         {/* Modal Footer */}
-        <div className="px-6 py-4 bg-zinc-950/60 border-t border-zinc-800 flex items-center justify-end gap-3">
+        <div className="px-6 py-4 bg-zinc-950/60 border-t border-zinc-800 flex items-center justify-end gap-3 shrink-0">
           <button
             type="button"
             onClick={onClose}
