@@ -4,7 +4,8 @@ export type BillingFrequency =
   | 'Yearly'
   | 'Weekly'
   | 'One-time'
-  | 'Custom';
+  | 'Custom'
+  | 'Free';
 
 export type SubscriptionStatus =
   | 'Active'
@@ -18,10 +19,11 @@ export interface Subscription {
   purpose: string; // Purpose (Human-readable label, e.g. Hosting or Monitoring)
   name?: string; // Optional alias for backward compatibility
   vendor: string; // Vendor/provider (Company or service name)
-  amount: string; // Decimal monetary value >= 0 (represented as exact decimal string, e.g. "49.99")
+  isFree?: boolean; // True if the service operates on a free tier or zero cost
+  amount: string; // Decimal monetary value >= 0 (represented as exact decimal string, e.g. "49.99" or "0.00")
   currency: string; // ISO 4217 code (USD, EUR, GBP, etc.)
   billingFrequency: BillingFrequency;
-  nextBillingDate: string; // YYYY-MM-DD in configured business timezone
+  nextBillingDate?: string; // YYYY-MM-DD in configured business timezone (optional for free tier)
   startDate?: string; // Date subscription began
   endDate?: string; // End / cancellation date (required if cancelled)
   owner?: string; // User/team responsible for reviewing bill

@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, DollarSign, ShieldAlert, Phone, Mail } from 'lucide-react';
+import { X, DollarSign, ShieldAlert, Phone, Mail, Gift } from 'lucide-react';
 import { Subscription, SubscriptionFormData, BillingFrequency, SubscriptionStatus } from '@/types/subscription';
 import { subscriptionSchema } from '@/lib/validations/subscription';
 
@@ -19,6 +19,7 @@ const FREQUENCY_OPTIONS: BillingFrequency[] = [
   'Weekly',
   'One-time',
   'Custom',
+  'Free',
 ];
 
 const STATUS_OPTIONS: SubscriptionStatus[] = [
@@ -92,13 +93,20 @@ export default function SubscriptionFormModal({
 }: SubscriptionFormModalProps) {
   const [formData, setFormData] = useState<SubscriptionFormData>(() => {
     if (subscriptionToEdit) {
+      const isFree = Boolean(
+        subscriptionToEdit.isFree ||
+        subscriptionToEdit.billingFrequency === 'Free' ||
+        subscriptionToEdit.amount === '0' ||
+        subscriptionToEdit.amount === '0.00'
+      );
       return {
         purpose: subscriptionToEdit.purpose || subscriptionToEdit.name || '',
         name: subscriptionToEdit.purpose || subscriptionToEdit.name || '',
-        vendor: subscriptionToEdit.vendor,
-        amount: subscriptionToEdit.amount,
+        vendor: subscriptionToEdit.vendor || '',
+        isFree,
+        amount: isFree ? '0.00' : (subscriptionToEdit.amount || ''),
         currency: subscriptionToEdit.currency || 'USD',
-        billingFrequency: subscriptionToEdit.billingFrequency || 'Monthly',
+        billingFrequency: subscriptionToEdit.billingFrequency || (isFree ? 'Free' : 'Monthly'),
         nextBillingDate: subscriptionToEdit.nextBillingDate || '',
         startDate: subscriptionToEdit.startDate || '',
         endDate: subscriptionToEdit.endDate || '',
@@ -115,6 +123,7 @@ export default function SubscriptionFormModal({
       purpose: '',
       name: '',
       vendor: '',
+      isFree: false,
       amount: '',
       currency: 'USD',
       billingFrequency: 'Monthly',
@@ -176,10 +185,14 @@ export default function SubscriptionFormModal({
     e.preventDefault();
     if (!validate()) return;
 
+    const isFree = Boolean(formData.isFree);
     const num = Number(formData.amount);
     const normalizedData: SubscriptionFormData = {
       ...formData,
-      amount: isNaN(num) ? formData.amount : num.toFixed(2),
+      isFree,
+      amount: isFree ? '0.00' : (isNaN(num) ? formData.amount : num.toFixed(2)),
+      billingFrequency: isFree && (!formData.billingFrequency || formData.billingFrequency === 'Monthly') ? 'Free' : formData.billingFrequency,
+      nextBillingDate: isFree && !formData.nextBillingDate ? undefined : formData.nextBillingDate,
       purpose: formData.purpose.trim(),
       name: formData.purpose.trim(),
       vendor: formData.vendor.trim(),
@@ -293,12 +306,57 @@ export default function SubscriptionFormModal({
             <h3 className="text-xs uppercase font-medium tracking-wider text-zinc-400 mb-3">
               2. Billing & Schedule
             </h3>
+
+            {/* Free Tier Switch */}
+            <div className="mb-4 p-3 bg-zinc-950 border border-zinc-800 rounded-md flex items-center justify-between gap-3">
+              <label htmlFor="isFreeService" className="flex items-start gap-3 cursor-pointer select-none">
+                <input
+                  type="checkbox"
+                  id="isFreeService"
+                  checked={Boolean(formData.isFree)}
+                  onChange={(e) => {
+                    const checked = e.target.checked;
+                    setFormData((prev) => ({
+                      ...prev,
+                      isFree: checked,
+                      amount: checked ? '0.00' : (prev.amount === '0.00' || prev.amount === '0' ? '' : prev.amount),
+                      billingFrequency: checked ? 'Free' : (prev.billingFrequency === 'Free' ? 'Monthly' : prev.billingFrequency),
+                      nextBillingDate: checked ? '' : prev.nextBillingDate,
+                    }));
+                    if (checked) {
+                      setErrors((prev) => {
+                        const copy = { ...prev };
+                        delete copy.amount;
+                        delete copy.nextBillingDate;
+                        return copy;
+                      });
+                    }
+                  }}
+                  className="mt-0.5 w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-white accent-emerald-500 focus:ring-emerald-400 focus:ring-offset-zinc-950 cursor-pointer"
+                />
+                <div>
+                  <span className="text-xs font-medium text-zinc-200 flex items-center gap-1.5">
+                    <Gift className="w-3.5 h-3.5 text-emerald-400" />
+                    Free Service / Free Tier
+                  </span>
+                  <span className="block text-[11px] text-zinc-500 mt-0.5">
+                    Enable if this service operates on an open-source, community, or zero-cost free plan.
+                  </span>
+                </div>
+              </label>
+              {formData.isFree && (
+                <span className="px-2 py-0.5 text-[11px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 rounded shrink-0">
+                  Zero Cost ($0.00)
+                </span>
+              )}
+            </div>
+
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Amount */}
-              <DelayedHoverContext context="Decimal value (≥ 0).">
+              <DelayedHoverContext context={formData.isFree ? "Zero financial cost applies to free tier." : "Decimal value (≥ 0)."}>
                 <div>
                   <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Amount <span className="text-zinc-400">*</span>
+                    Amount {formData.isFree ? <span className="text-emerald-400 text-[11px] font-normal">(Free)</span> : <span className="text-zinc-400">*</span>}
                   </label>
                   <div className="relative">
                     <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
@@ -308,12 +366,15 @@ export default function SubscriptionFormModal({
                       type="number"
                       step="0.01"
                       min="0"
-                      placeholder="Enter amount"
-                      value={formData.amount}
+                      placeholder={formData.isFree ? "0.00 (Free)" : "Enter amount"}
+                      value={formData.isFree ? "0.00" : formData.amount}
+                      disabled={Boolean(formData.isFree)}
                       onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
                       className={`w-full pl-9 pr-3 py-2 bg-zinc-950 border ${
                         errors.amount ? 'border-zinc-400' : 'border-zinc-800'
-                      } rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors`}
+                      } rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors ${
+                        formData.isFree ? 'opacity-60 cursor-not-allowed bg-zinc-900/60' : ''
+                      }`}
                     />
                   </div>
                   {errors.amount && <p className="text-xs text-zinc-300 mt-1">{errors.amount}</p>}
@@ -370,14 +431,14 @@ export default function SubscriptionFormModal({
             {/* Dates row */}
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
               {/* Next billing date */}
-              <DelayedHoverContext context={`In configured timezone (${configuredTimezone}).`}>
+              <DelayedHoverContext context={formData.isFree ? "Optional renewal or review date for free services." : `In configured timezone (${configuredTimezone}).`}>
                 <div>
                   <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Next Billing Date <span className="text-zinc-400">*</span>
+                    Next Billing Date {formData.isFree ? <span className="text-zinc-500 text-[11px] font-normal">(Optional for Free)</span> : <span className="text-zinc-400">*</span>}
                   </label>
                   <input
                     type="date"
-                    value={formData.nextBillingDate}
+                    value={formData.nextBillingDate || ''}
                     onChange={(e) => setFormData({ ...formData, nextBillingDate: e.target.value })}
                     className={`w-full px-3 py-2 bg-zinc-950 border ${
                       errors.nextBillingDate ? 'border-zinc-400' : 'border-zinc-800'
