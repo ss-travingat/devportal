@@ -13,3 +13,31 @@ export interface MediaAsset {
   format: string;
 }
 
+export interface MediaEngineUploadLog {
+  stage: string;
+  message: string;
+  timestamp: string;
+}
+
+export interface MediaEngineUpload {
+  id: string;
+  filename: string;
+  original_size: number;
+  optimized_size: number | null;
+  savings_pct: number;
+  has_thumbnail: boolean;
+  thumbnail_size: number | null;
+  status: 'PROCESSING' | 'READY' | 'EXPIRED' | 'ERROR';
+  tag: 'LIVE' | 'EXPIRED' | 'PROCESSING' | 'ERROR';
+  is_live: boolean;
+  is_expired: boolean;
+  remaining_seconds: number;
+  optimized_url: string | null;
+  thumbnail_url: string | null;
+  created_at: string | null;
+  completed_at: string | null;
+  expires_at: string | null;
+  purged_at: string | null;
+  logs: MediaEngineUploadLog[];
+  error_message: string | null;
+}

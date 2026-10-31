@@ -1,11 +1,10 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import {
   CreditCard,
   BookOpen,
-  Plus,
   ArrowRight,
   Activity,
   Gauge,
@@ -14,16 +13,12 @@ import {
 } from 'lucide-react';
 import { Subscription } from '@/types/subscription';
 import { DocMeta } from '@/types/docs';
-import { MediaAsset } from '@/types/media';
 import { loadSubscriptions, saveSubscriptions } from '@/lib/storage';
-import { loadMediaAssets, saveMediaAssets } from '@/lib/media-storage';
-import MediaUploadModal from '@/components/MediaUploadModal';
 
 export default function HomePage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => loadSubscriptions());
-  const [mediaAssets, setMediaAssets] = useState<MediaAsset[]>(() => loadMediaAssets());
   const [docs, setDocs] = useState<DocMeta[]>([]);
-  const [isMediaUploadOpen, setIsMediaUploadOpen] = useState(false);
+  const [liveUploadsCount, setLiveUploadsCount] = useState<number>(0);
 
   // Load subscriptions from JSON via API on mount
   useEffect(() => {
@@ -48,11 +43,17 @@ export default function HomePage() {
       .catch((err) => console.error('Failed to load docs list:', err));
   }, []);
 
-  const handleUploadMediaSuccess = (newAssets: MediaAsset[]) => {
-    const updated = [...newAssets, ...mediaAssets];
-    setMediaAssets(updated);
-    saveMediaAssets(updated);
-  };
+  // Load live uploads count
+  useEffect(() => {
+    fetch('/api/media-engine/uploads?filter=live')
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data.total === 'number') {
+          setLiveUploadsCount(data.total);
+        }
+      })
+      .catch(() => { });
+  }, []);
 
   const activeCount = subscriptions.filter((s) => s.status === 'Active').length;
   const totalAmount = subscriptions
@@ -68,45 +69,10 @@ export default function HomePage() {
         </p>
       </div>
 
-      {/* Top Featured Action Card: Media Upload with Big Plus Icon */}
-      <div
-        onClick={() => setIsMediaUploadOpen(true)}
-        className="group relative p-6 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-600 rounded-xl cursor-pointer transition-all duration-200 shadow-xl flex flex-col sm:flex-row sm:items-center sm:justify-between gap-5 border-dashed"
-      >
-        <div className="flex items-center gap-5">
-          <div className="w-16 h-16 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center shrink-0 group-hover:scale-105 group-hover:border-zinc-500 transition-all shadow-inner">
-            <Plus className="w-8 h-8 text-white stroke-[2.2]" />
-          </div>
-          <div>
-            <div className="flex items-center gap-2 mb-1">
-              <h2 className="text-xl font-bold text-white group-hover:text-zinc-100 transition-colors">
-                Media Upload
-              </h2>
-              <span className="text-[10px] font-mono px-2 py-0.5 rounded border border-zinc-700 bg-zinc-800/80 text-zinc-300">
-                Cloudflare R2
-              </span>
-            </div>
-            <p className="text-xs text-zinc-400 leading-relaxed max-w-xl">
-              Quickly upload creator images, banner photography, video reels, and passport card assets directly to the R2 asset pipeline.
-            </p>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          <button
-            type="button"
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-zinc-950 bg-white group-hover:bg-zinc-200 rounded-md transition-colors shadow"
-          >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Upload Files</span>
-          </button>
-        </div>
-      </div>
-
       {/* Cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
 
-        {/* Card 1: Media Portal */}
+        {/* Card 1: Media Portal & Optimizer */}
         <Link
           href="/media-portal"
           className="group relative p-6 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 rounded-lg cursor-pointer transition-all duration-200 shadow-lg flex flex-col justify-between"
@@ -117,7 +83,7 @@ export default function HomePage() {
                 <Film className="w-5 h-5 text-white" />
               </div>
               <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-zinc-700 bg-zinc-800/80 text-zinc-300">
-                {mediaAssets.length} Assets
+                {liveUploadsCount} Live
               </span>
             </div>
 
@@ -125,14 +91,13 @@ export default function HomePage() {
               Media Portal
             </h2>
             <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-              Browse, inspect, and organize stored Cloudflare R2 bucket media, thumbnail variants,
-              and CDN distributions.
+              Upload and optimize images, configure thumbnail creation, monitor 15-minute live retention tags, and download individual photos or packaged ZIPs.
             </p>
           </div>
 
           <div className="mt-6 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs">
             <span className="text-zinc-500 font-mono text-[11px]">
-              travingat-prod-media
+              Media Engine
             </span>
             <div className="inline-flex items-center gap-1 font-medium text-white group-hover:translate-x-0.5 transition-transform">
               <span>Open Media</span>
@@ -286,13 +251,6 @@ export default function HomePage() {
           </div>
         </a>
       </div>
-
-      {/* Quick Upload Modal from Home */}
-      <MediaUploadModal
-        isOpen={isMediaUploadOpen}
-        onClose={() => setIsMediaUploadOpen(false)}
-        onUploadSuccess={handleUploadMediaSuccess}
-      />
     </div>
   );
 }

@@ -1,250 +1,572 @@
 'use client';
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
 import {
-  Image as ImageIcon,
-  Film,
-  File,
-  Copy,
-  Check,
-  Trash2,
+  Upload,
+  Download,
+  Archive,
   Search,
-  Plus,
-  Cloud,
-  HardDrive,
-  ExternalLink,
+  RefreshCw,
+  Image as ImageIcon,
+  Trash2,
+  FileText,
+  Sliders,
 } from 'lucide-react';
-import { MediaAsset } from '@/types/media';
+import { MediaEngineUpload } from '@/types/media';
+import MediaLogsModal from './MediaLogsModal';
 
 interface MediaPortalViewProps {
-  assets: MediaAsset[];
-  onOpenUpload: () => void;
-  onDeleteAsset: (id: string) => void;
+  initialUploads?: MediaEngineUpload[];
 }
 
-export default function MediaPortalView({
-  assets,
-  onOpenUpload,
-  onDeleteAsset,
-}: MediaPortalViewProps) {
+export default function MediaPortalView({ initialUploads = [] }: MediaPortalViewProps) {
+  const [uploads, setUploads] = useState<MediaEngineUpload[]>(initialUploads);
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+
+  // Configuration: thumbnail option
+  const [includeThumbnail, setIncludeThumbnail] = useState(true);
+
+  // Selected files for drag-and-drop
+  const [dragActive, setDragActive] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // Search & filter
   const [search, setSearch] = useState('');
-  const [selectedCategory, setSelectedCategory] = useState<string>('All');
-  const [copiedId, setCopiedId] = useState<string | null>(null);
+  const [filterTab, setFilterTab] = useState<'all' | 'live' | 'expired'>('all');
 
-  const categories = ['All', 'Banners', 'Cards', 'Profiles', 'Videos', 'Branding'];
+  // Logs modal
+  const [activeLogUpload, setActiveLogUpload] = useState<MediaEngineUpload | null>(null);
+  const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
 
-  const filteredAssets = useMemo(() => {
-    return assets.filter((asset) => {
-      const matchSearch =
-        asset.name.toLowerCase().includes(search.toLowerCase()) ||
-        asset.category.toLowerCase().includes(search.toLowerCase()) ||
-        asset.format.toLowerCase().includes(search.toLowerCase());
-      const matchCategory =
-        selectedCategory === 'All' || asset.category.toLowerCase() === selectedCategory.toLowerCase();
-      return matchSearch && matchCategory;
-    });
-  }, [assets, search, selectedCategory]);
+  // Download all loading state
+  const [isDownloadingZip, setIsDownloadingZip] = useState(false);
 
-  const handleCopy = (id: string, url: string) => {
-    navigator.clipboard.writeText(url);
-    setCopiedId(id);
-    setTimeout(() => {
-      setCopiedId(null);
-    }, 2000);
+  // Polling / fetching uploads list
+  useEffect(() => {
+    let mounted = true;
+
+    const load = async () => {
+      try {
+        const res = await fetch('/api/media-engine/uploads');
+        if (res.ok && mounted) {
+          const data = await res.json();
+          if (Array.isArray(data.uploads)) {
+            setUploads(data.uploads);
+          }
+        }
+      } catch (err) {
+        console.error('Failed to fetch media uploads:', err);
+      }
+    };
+
+    load();
+    const interval = setInterval(load, 5000);
+    return () => {
+      mounted = false;
+      clearInterval(interval);
+    };
+  }, []);
+
+  const refreshList = async () => {
+    try {
+      const res = await fetch('/api/media-engine/uploads');
+      if (res.ok) {
+        const data = await res.json();
+        if (Array.isArray(data.uploads)) {
+          setUploads(data.uploads);
+        }
+      }
+    } catch (err) {
+      console.error('Failed to fetch media uploads:', err);
+    }
   };
 
-  const imageCount = assets.filter((a) => a.type === 'image').length;
-  const videoCount = assets.filter((a) => a.type === 'video').length;
+  // Format file size
+  const formatBytes = (bytes: number | null) => {
+    if (!bytes || bytes <= 0) return '0 B';
+    if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
+    return (bytes / 1024).toFixed(1) + ' KB';
+  };
+
+  // Format countdown mm:ss
+  const formatCountdown = (seconds: number) => {
+    if (seconds <= 0) return 'Expired';
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m}:${s < 10 ? '0' : ''}${s}`;
+  };
+
+  // Drag & drop handlers
+  const handleDrag = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    if (e.type === 'dragenter' || e.type === 'dragover') {
+      setDragActive(true);
+    } else if (e.type === 'dragleave') {
+      setDragActive(false);
+    }
+  };
+
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setDragActive(false);
+    if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+      uploadFiles(Array.from(e.dataTransfer.files));
+    }
+  };
+
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (e.target.files && e.target.files.length > 0) {
+      uploadFiles(Array.from(e.target.files));
+    }
+    if (fileInputRef.current) fileInputRef.current.value = '';
+  };
+
+  // Upload handler
+  const uploadFiles = async (files: File[]) => {
+    const imageFiles = files.filter((f) => f.type.startsWith('image/'));
+    if (imageFiles.length === 0) {
+      alert('Please select valid image files (JPG, PNG, WebP, etc.)');
+      return;
+    }
+
+    setIsUploading(true);
+    setUploadProgress(10);
+
+    for (let i = 0; i < imageFiles.length; i++) {
+      const file = imageFiles[i];
+      const formData = new FormData();
+      formData.append('file', file);
+      formData.append('include_thumbnail', String(includeThumbnail));
+
+      try {
+        const res = await fetch('/api/media-engine/upload', {
+          method: 'POST',
+          body: formData,
+        });
+
+        if (res.ok) {
+          const newUpload = await res.json();
+          setUploads((prev) => [newUpload, ...prev.filter((u) => u.id !== newUpload.id)]);
+        }
+      } catch (err) {
+        console.error('Failed to upload file:', err);
+      }
+
+      setUploadProgress(Math.round(((i + 1) / imageFiles.length) * 100));
+    }
+
+    setTimeout(() => {
+      setIsUploading(false);
+      setUploadProgress(0);
+      refreshList();
+    }, 500);
+  };
+
+  // Download single image
+  const handleDownloadSingle = (upload: MediaEngineUpload, type: 'optimized' | 'thumbnail' = 'optimized') => {
+    if (upload.is_expired) return;
+    const downloadUrl = `/api/media-engine/download?id=${encodeURIComponent(upload.id)}&type=${encodeURIComponent(type)}`;
+    const a = document.createElement('a');
+    a.href = downloadUrl;
+    a.download = '';
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+  };
+
+  // Download all as ZIP
+  const handleDownloadAllZip = async () => {
+    const liveItems = uploads.filter((u) => u.is_live);
+    if (liveItems.length === 0) return;
+
+    setIsDownloadingZip(true);
+    try {
+      const ids = liveItems.map((u) => u.id);
+      const res = await fetch('/api/media-engine/download-zip', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      });
+
+      if (!res.ok) {
+        throw new Error('Failed to download ZIP archive');
+      }
+
+      const blob = await res.blob();
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'travingat_optimized_media.zip';
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      console.error('ZIP download failed:', err);
+      alert('Failed to generate ZIP download. Images may have expired.');
+    } finally {
+      setIsDownloadingZip(false);
+    }
+  };
+
+  // Filtered uploads
+  const filteredUploads = useMemo(() => {
+    return uploads.filter((u) => {
+      const matchesSearch = u.filename.toLowerCase().includes(search.toLowerCase());
+      if (!matchesSearch) return false;
+
+      if (filterTab === 'live') return u.is_live;
+      if (filterTab === 'expired') return u.is_expired;
+      return true;
+    });
+  }, [uploads, search, filterTab]);
+
+  const liveCount = uploads.filter((u) => u.is_live).length;
+  const expiredCount = uploads.filter((u) => u.is_expired).length;
+  const hasLiveThumbnails = uploads.some((u) => u.is_live && u.has_thumbnail);
 
   return (
-    <div className="space-y-6">
-      {/* Top Header Row */}
+    <div className="space-y-8">
+      {/* Page Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-zinc-800">
         <div>
-          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
-            Media Portal
+          <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
+            <Sliders className="w-6 h-6 text-zinc-300" />
+            <span>Media Engine Image Optimizer</span>
           </h1>
-          <p className="text-xs text-zinc-400 mt-0.5">
-            Cloudflare R2 Object Storage buckets, creator media assets, and CDN delivery networks.
+          <p className="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
+            Upload individual images for instant PyVips AVIF optimization. Photos remain <strong>live for 15 minutes</strong> for immediate download, after which files are automatically purged from Cloudflare R2 and DB while the audit logs stay permanently.
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
           <button
-            onClick={onOpenUpload}
-            className="inline-flex items-center gap-2 px-4 py-2 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 rounded-md transition-colors shadow"
+            type="button"
+            onClick={refreshList}
+            className="p-2 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors"
+            title="Refresh status"
           >
-            <Plus className="w-4 h-4 stroke-[2.5]" />
-            <span>Upload Media</span>
+            <RefreshCw className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>
 
-      {/* Metrics Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-        <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-          <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
-            <span>Total Assets</span>
-            <HardDrive className="w-4 h-4 text-zinc-500" />
+      {/* Upload & Configuration Card */}
+      <div className="p-6 bg-zinc-900 border border-zinc-800 rounded-xl space-y-5 shadow-xl">
+        {/* Configuration Row: Thumbnail Toggle */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800/80">
+          <div className="space-y-1">
+            <span className="text-xs font-semibold text-zinc-200 flex items-center gap-2">
+              <span>Thumbnail Generation Setting</span>
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
+                720p Variant
+              </span>
+            </span>
+            <p className="text-xs text-zinc-400 leading-relaxed max-w-xl">
+              {includeThumbnail
+                ? 'Thumbnails enabled: Optimizes main image + produces 720p thumbnail. "Download All" will bundle images and thumbnails into a ZIP archive.'
+                : 'Thumbnails disabled: Optimizes main image only. Single photo downloads without extra thumbnail variants.'}
+            </p>
           </div>
-          <div className="text-xl font-bold font-mono text-white">{assets.length}</div>
-          <div className="text-[11px] text-zinc-500 mt-1">
-            {imageCount} Images • {videoCount} Videos
-          </div>
+
+          <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
+            <input
+              type="checkbox"
+              checked={includeThumbnail}
+              onChange={(e) => setIncludeThumbnail(e.target.checked)}
+              className="sr-only peer"
+            />
+            <div className="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white peer-checked:after:bg-zinc-950"></div>
+            <span className="ml-3 text-xs font-medium text-zinc-300">
+              {includeThumbnail ? 'Thumbnails Enabled' : 'Thumbnails Off'}
+            </span>
+          </label>
         </div>
 
-        <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-          <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
-            <span>R2 Bucket</span>
-            <Cloud className="w-4 h-4 text-zinc-500" />
-          </div>
-          <div className="text-sm font-semibold font-mono text-zinc-200 truncate">
-            travingat-prod-media
-          </div>
-          <div className="text-[11px] text-zinc-500 mt-1">S3-Compatible Object Store</div>
-        </div>
-
-        <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-          <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
-            <span>CDN Endpoint</span>
-            <ExternalLink className="w-4 h-4 text-zinc-500" />
-          </div>
-          <div className="text-sm font-semibold font-mono text-zinc-200 truncate">
-            cdn.travingat.com
-          </div>
-          <div className="text-[11px] text-zinc-500 mt-1">Edge Cached (TTL 1y)</div>
-        </div>
-
-        <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">
-          <div className="flex items-center justify-between text-zinc-400 text-xs mb-1">
-            <span>Media Engine</span>
-            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
-          </div>
-          <div className="text-sm font-semibold font-mono text-zinc-200">
-            Celery / Sharp
-          </div>
-          <div className="text-[11px] text-zinc-500 mt-1">Auto-WebP & Thumbnails</div>
-        </div>
-      </div>
-
-      {/* Filter and Search Bar */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
-        {/* Category Tabs */}
-        <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-          {categories.map((cat) => (
-            <button
-              key={cat}
-              onClick={() => setSelectedCategory(cat)}
-              className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors whitespace-nowrap ${
-                selectedCategory === cat
-                  ? 'bg-white text-zinc-950 font-semibold shadow'
-                  : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800'
-              }`}
-            >
-              {cat}
-            </button>
-          ))}
-        </div>
-
-        {/* Search */}
-        <div className="relative w-full sm:max-w-xs">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+        {/* Drag & Drop Zone */}
+        <div
+          onDragEnter={handleDrag}
+          onDragLeave={handleDrag}
+          onDragOver={handleDrag}
+          onDrop={handleDrop}
+          onClick={() => fileInputRef.current?.click()}
+          className={`relative p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center flex flex-col items-center justify-center gap-3 ${
+            dragActive
+              ? 'border-white bg-zinc-800/60 scale-[1.005]'
+              : 'border-zinc-700/80 bg-zinc-950/40 hover:bg-zinc-950/80 hover:border-zinc-500'
+          }`}
+        >
           <input
-            type="text"
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search media files..."
-            className="w-full pl-9 pr-3 py-1.5 text-xs bg-zinc-900 border border-zinc-800 rounded-md text-zinc-200 placeholder-zinc-600 focus:outline-none focus:border-zinc-600"
+            ref={fileInputRef}
+            type="file"
+            multiple
+            accept="image/*"
+            onChange={handleFileChange}
+            className="hidden"
           />
+
+          <div className="w-12 h-12 rounded-xl bg-zinc-800 border border-zinc-700 flex items-center justify-center text-white">
+            <Upload className="w-6 h-6 stroke-[2]" />
+          </div>
+
+          <div>
+            <p className="text-sm font-semibold text-white">
+              Drop individual photos here or <span className="underline underline-offset-2">browse files</span>
+            </p>
+            <p className="text-xs text-zinc-400 mt-1">
+              Supports JPEG, PNG, WebP, AVIF, TIFF. Compressed to AVIF with PyVips.
+            </p>
+          </div>
+
+          {isUploading && (
+            <div className="w-full max-w-xs mt-3 space-y-1.5">
+              <div className="h-1.5 w-full bg-zinc-800 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-white transition-all duration-300 rounded-full"
+                  style={{ width: `${uploadProgress}%` }}
+                />
+              </div>
+              <span className="text-[11px] font-mono text-zinc-400 block text-center">
+                Optimizing & uploading: {uploadProgress}%
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Media Asset Grid */}
-      {filteredAssets.length === 0 ? (
-        <div className="py-16 text-center text-zinc-500 text-xs border border-zinc-800 rounded-xl bg-zinc-900/40">
-          No media files found matching your filters.
+      {/* Controls & Filter Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        {/* Filter Tabs */}
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => setFilterTab('all')}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              filterTab === 'all'
+                ? 'bg-zinc-800 text-white border border-zinc-700'
+                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+            }`}
+          >
+            All Logs ({uploads.length})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterTab('live')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              filterTab === 'live'
+                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
+                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+            }`}
+          >
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+            Live ({liveCount})
+          </button>
+          <button
+            type="button"
+            onClick={() => setFilterTab('expired')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
+              filterTab === 'expired'
+                ? 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+            }`}
+          >
+            <Trash2 className="w-3 h-3 text-red-400" />
+            Expired ({expiredCount})
+          </button>
+        </div>
+
+        {/* Search & Download All Action */}
+        <div className="flex items-center gap-3">
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-500 pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Filter by filename..."
+              className="pl-8 pr-3 py-1.5 text-xs bg-zinc-900 border border-zinc-800 rounded-md text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
+            />
+          </div>
+
+          {/* Download All (ZIP) button */}
+          <button
+            type="button"
+            onClick={handleDownloadAllZip}
+            disabled={liveCount === 0 || isDownloadingZip}
+            className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-colors shadow ${
+              liveCount > 0 && !isDownloadingZip
+                ? 'bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer'
+                : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/60'
+            }`}
+          >
+            {isDownloadingZip ? (
+              <>
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                <span>Packing ZIP...</span>
+              </>
+            ) : hasLiveThumbnails ? (
+              <>
+                <Archive className="w-3.5 h-3.5 stroke-[2.2]" />
+                <span>Download All (ZIP)</span>
+              </>
+            ) : (
+              <>
+                <Download className="w-3.5 h-3.5 stroke-[2.2]" />
+                <span>Download All</span>
+              </>
+            )}
+          </button>
+        </div>
+      </div>
+
+      {/* Uploads List Table / Cards */}
+      {filteredUploads.length === 0 ? (
+        <div className="py-20 text-center border border-zinc-800/80 rounded-xl bg-zinc-950/40 text-zinc-500 text-xs">
+          <ImageIcon className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
+          <p>No images matching the selected filter.</p>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-          {filteredAssets.map((asset) => {
-            const isImage = asset.type === 'image';
-            const isVideo = asset.type === 'video';
-
-            return (
-              <div
-                key={asset.id}
-                className="group p-4 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-all duration-150 flex flex-col justify-between"
-              >
-                <div>
-                  {/* Top file preview badge */}
-                  <div className="flex items-center justify-between mb-3">
-                    <div className="p-2 bg-zinc-800 border border-zinc-700 rounded-md">
-                      {isImage ? (
-                        <ImageIcon className="w-4 h-4 text-zinc-200" />
-                      ) : isVideo ? (
-                        <Film className="w-4 h-4 text-zinc-200" />
-                      ) : (
-                        <File className="w-4 h-4 text-zinc-200" />
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 border border-zinc-700/80 text-zinc-300">
-                        {asset.format}
-                      </span>
-                    </div>
-                  </div>
-
-                  {/* Name & Details */}
-                  <h3 className="text-xs font-semibold text-white truncate mb-1" title={asset.name}>
-                    {asset.name}
-                  </h3>
-                  <div className="flex items-center gap-2 text-[11px] text-zinc-500 font-mono">
-                    <span>{asset.size}</span>
-                    {asset.dimensions && (
-                      <>
-                        <span>•</span>
-                        <span>{asset.dimensions}</span>
-                      </>
-                    )}
-                  </div>
-                  <div className="text-[10px] text-zinc-500 mt-1">
-                    {asset.category} • Uploaded {asset.uploadedAt}
-                  </div>
+        <div className="space-y-3">
+          {filteredUploads.map((upload) => (
+            <div
+              key={upload.id}
+              className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${
+                upload.is_live
+                  ? 'bg-zinc-900/90 border-zinc-800 hover:border-zinc-700 shadow-lg'
+                  : upload.is_expired
+                  ? 'bg-zinc-950/70 border-zinc-850 opacity-80'
+                  : 'bg-zinc-900/60 border-zinc-800'
+              }`}
+            >
+              {/* Left Column: Image preview & Meta */}
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-14 h-14 rounded-lg bg-zinc-950 border border-zinc-800 overflow-hidden flex items-center justify-center shrink-0">
+                  {upload.is_live && upload.thumbnail_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={upload.thumbnail_url}
+                      alt={upload.filename}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : upload.is_live && upload.optimized_url ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={upload.optimized_url}
+                      alt={upload.filename}
+                      className="w-full h-full object-cover"
+                    />
+                  ) : (
+                    <ImageIcon className="w-6 h-6 text-zinc-600" />
+                  )}
                 </div>
 
-                {/* Card Actions */}
-                <div className="mt-4 pt-3 border-t border-zinc-800/80 flex items-center justify-between">
-                  <button
-                    onClick={() => handleCopy(asset.id, asset.url)}
-                    className="inline-flex items-center gap-1.5 px-2.5 py-1 text-[11px] font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-750 border border-zinc-700 rounded transition-colors"
-                  >
-                    {copiedId === asset.id ? (
-                      <>
-                        <Check className="w-3 h-3 text-white" />
-                        <span>Copied CDN</span>
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-3 h-3 text-zinc-400" />
-                        <span>Copy URL</span>
-                      </>
-                    )}
-                  </button>
+                <div className="space-y-1 min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <h3 className="text-sm font-semibold text-white truncate max-w-sm" title={upload.filename}>
+                      {upload.filename}
+                    </h3>
 
-                  <button
-                    onClick={() => onDeleteAsset(asset.id)}
-                    className="p-1 text-zinc-500 hover:text-zinc-200 hover:bg-zinc-800 rounded transition-colors"
-                    title="Delete asset"
-                  >
-                    <Trash2 className="w-3.5 h-3.5" />
-                  </button>
+                    {/* LIVE / EXPIRED Tag */}
+                    {upload.is_live ? (
+                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
+                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                        LIVE (⏱ {formatCountdown(upload.remaining_seconds)})
+                      </span>
+                    ) : upload.is_expired ? (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
+                        <Trash2 className="w-3 h-3 text-red-400" />
+                        EXPIRED
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-blue-950 text-blue-400 border border-blue-800">
+                        <RefreshCw className="w-3 h-3 animate-spin" />
+                        {upload.status}
+                      </span>
+                    )}
+
+                    {upload.has_thumbnail && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700">
+                        +720p Thumb
+                      </span>
+                    )}
+                  </div>
+
+                  {/* Size and Savings Info */}
+                  <div className="flex items-center gap-3 text-xs text-zinc-400">
+                    <span>Original: <strong className="font-mono text-zinc-300">{formatBytes(upload.original_size)}</strong></span>
+                    <span>→</span>
+                    <span>Optimized: <strong className="font-mono text-white">{upload.optimized_size ? formatBytes(upload.optimized_size) : '...'}</strong></span>
+                    {upload.savings_pct > 0 && (
+                      <span className="text-emerald-400 font-mono font-medium">
+                        (-{upload.savings_pct}%)
+                      </span>
+                    )}
+                  </div>
                 </div>
               </div>
-            );
-          })}
+
+              {/* Right Column: Actions */}
+              <div className="flex items-center gap-2.5 shrink-0 self-end md:self-center">
+                {/* View Logs Button */}
+                <button
+                  type="button"
+                  onClick={() => {
+                    setActiveLogUpload(upload);
+                    setIsLogsModalOpen(true);
+                  }}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md transition-colors"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>Logs</span>
+                </button>
+
+                {/* Download Actions */}
+                {upload.is_live ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={() => handleDownloadSingle(upload, 'optimized')}
+                      className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 rounded-md transition-colors shadow"
+                    >
+                      <Download className="w-3.5 h-3.5 stroke-[2.2]" />
+                      <span>Download</span>
+                    </button>
+
+                    {upload.has_thumbnail && (
+                      <button
+                        type="button"
+                        onClick={() => handleDownloadSingle(upload, 'thumbnail')}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md transition-colors"
+                        title="Download 720p thumbnail separately"
+                      >
+                        <Download className="w-3.5 h-3.5" />
+                        <span>Thumb</span>
+                      </button>
+                    )}
+                  </>
+                ) : (
+                  <span
+                    className="inline-flex items-center gap-1 text-xs text-zinc-500 font-mono px-3 py-1.5 rounded bg-zinc-950/60 border border-zinc-850"
+                    title="Deleted from Cloudflare R2 after 15 minutes of optimization"
+                  >
+                    Purged from R2 & DB
+                  </span>
+                )}
+              </div>
+            </div>
+          ))}
         </div>
       )}
+
+      {/* Logs Modal */}
+      <MediaLogsModal
+        upload={activeLogUpload}
+        isOpen={isLogsModalOpen}
+        onClose={() => setIsLogsModalOpen(false)}
+      />
     </div>
   );
 }
-
