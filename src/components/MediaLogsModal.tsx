@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { X, Clock, FileText, Trash2 } from 'lucide-react';
+import { X, Clock, FileText, Trash2, AlertTriangle } from 'lucide-react';
 import { MediaEngineUpload } from '@/types/media';
 
 interface MediaLogsModalProps {
@@ -20,6 +20,7 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
   };
 
   const isLive = upload.is_live;
+  const isFailed = upload.status === 'ERROR' || !!upload.error_message;
 
   return (
     <div
@@ -36,8 +37,8 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800 bg-zinc-900/90 backdrop-blur shrink-0">
           <div className="flex items-center gap-3">
-            <div className="p-2 bg-zinc-800 border border-zinc-700 rounded-lg">
-              <FileText className="w-5 h-5 text-zinc-300" />
+            <div className={`p-2 border rounded-lg ${isFailed ? 'bg-red-950/60 border-red-900/80 text-red-400' : 'bg-zinc-800 border-zinc-700 text-zinc-300'}`}>
+              {isFailed ? <AlertTriangle className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -53,6 +54,10 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
                     <Trash2 className="w-3 h-3 text-red-400" />
                     EXPIRED & PURGED
+                  </span>
+                ) : isFailed ? (
+                  <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-red-950 text-red-400 border border-red-800">
+                    FAILED
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-blue-950 text-blue-400 border border-blue-800">
@@ -75,6 +80,19 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
 
         {/* Content */}
         <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0 text-xs">
+          {/* Failure Alert Banner */}
+          {isFailed && (
+            <div className="p-3.5 rounded-lg border border-red-900/60 bg-red-950/30 text-red-300 flex items-start gap-3">
+              <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
+              <div>
+                <p className="font-semibold text-red-200">Optimization Failed</p>
+                <p className="text-[11px] mt-0.5 leading-relaxed text-red-300 font-mono">
+                  {upload.error_message || 'The upload or processing step could not be completed.'}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Summary Metric Cards */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 bg-zinc-950/60 border border-zinc-800/80 rounded-lg">
@@ -107,30 +125,32 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
           </div>
 
           {/* Retention Notice */}
-          <div className={`p-3.5 rounded-lg border text-xs flex items-start gap-3 ${
-            isLive 
-              ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-300' 
-              : 'bg-zinc-950 border-zinc-800 text-zinc-400'
-          }`}>
-            <Clock className={`w-4 h-4 shrink-0 mt-0.5 ${isLive ? 'text-emerald-400' : 'text-zinc-500'}`} />
-            <div>
-              <p className="font-medium text-zinc-200">
-                {isLive ? '15-Minute Live Window Active' : 'Retention Period Expired'}
-              </p>
-              <p className="text-[11px] mt-0.5 leading-relaxed text-zinc-400">
-                {isLive ? (
-                  <>
-                    This photo is currently stored in Cloudflare R2 and can be downloaded immediately. 
-                    It will be permanently deleted from R2 storage and the database once the 15-minute optimization window finishes.
-                  </>
-                ) : (
-                  <>
-                    The 15-minute optimization window has finished. The image files and database records have been permanently purged from Cloudflare R2. This audit log remains preserved.
-                  </>
-                )}
-              </p>
+          {!isFailed && (
+            <div className={`p-3.5 rounded-lg border text-xs flex items-start gap-3 ${
+              isLive 
+                ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-300' 
+                : 'bg-zinc-950 border-zinc-800 text-zinc-400'
+            }`}>
+              <Clock className={`w-4 h-4 shrink-0 mt-0.5 ${isLive ? 'text-emerald-400' : 'text-zinc-500'}`} />
+              <div>
+                <p className="font-medium text-zinc-200">
+                  {isLive ? '15-Minute Live Window Active' : 'Retention Period Expired'}
+                </p>
+                <p className="text-[11px] mt-0.5 leading-relaxed text-zinc-400">
+                  {isLive ? (
+                    <>
+                      This photo is currently stored in Cloudflare R2 and can be downloaded immediately. 
+                      It will be permanently deleted from R2 storage and the database once the 15-minute optimization window finishes.
+                    </>
+                  ) : (
+                    <>
+                      The 15-minute optimization window has finished. The image files and database records have been permanently purged from Cloudflare R2. This audit log remains preserved.
+                    </>
+                  )}
+                </p>
+              </div>
             </div>
-          </div>
+          )}
 
           {/* Audit Logs Timeline */}
           <div className="space-y-3">
@@ -144,20 +164,27 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
               </div>
             ) : (
               <div className="space-y-2 border border-zinc-800/80 rounded-lg p-3 bg-zinc-950/80 divide-y divide-zinc-900">
-                {upload.logs.map((log, idx) => (
-                  <div key={idx} className="pt-2 first:pt-0 flex items-start justify-between gap-4">
-                    <div className="flex items-start gap-2.5">
-                      <span className="w-1.5 h-1.5 rounded-full bg-zinc-400 mt-1.5 shrink-0" />
-                      <div>
-                        <span className="font-semibold text-zinc-200 mr-2">{log.stage}:</span>
-                        <span className="text-zinc-400">{log.message}</span>
+                {upload.logs.map((log, idx) => {
+                  const isErrStage = log.stage.toLowerCase().includes('error') || log.stage.toLowerCase().includes('failed');
+                  return (
+                    <div key={idx} className="pt-2 first:pt-0 flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-2.5">
+                        <span className={`w-1.5 h-1.5 rounded-full mt-1.5 shrink-0 ${isErrStage ? 'bg-red-400' : 'bg-zinc-400'}`} />
+                        <div>
+                          <span className={`font-semibold mr-2 ${isErrStage ? 'text-red-300' : 'text-zinc-200'}`}>
+                            {log.stage}:
+                          </span>
+                          <span className={isErrStage ? 'text-red-300/90' : 'text-zinc-400'}>
+                            {log.message}
+                          </span>
+                        </div>
                       </div>
+                      <span className="text-[10px] font-mono text-zinc-600 shrink-0">
+                        {new Date(log.timestamp).toLocaleTimeString()}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-mono text-zinc-600 shrink-0">
-                      {new Date(log.timestamp).toLocaleTimeString()}
-                    </span>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             )}
           </div>
@@ -166,7 +193,7 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
         {/* Footer */}
         <div className="flex items-center justify-between px-6 py-3.5 border-t border-zinc-800 bg-zinc-900 shrink-0">
           <span className="text-[11px] font-mono text-zinc-500">
-            {upload.completed_at ? `Completed: ${new Date(upload.completed_at).toLocaleTimeString()}` : 'In progress'}
+            {upload.completed_at ? `Completed: ${new Date(upload.completed_at).toLocaleTimeString()}` : isFailed ? 'Failed' : 'In progress'}
           </span>
           <button
             type="button"

@@ -66,10 +66,18 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
     }
   };
 
-  // Sync with backend every 5 seconds
+  // Adaptive sync with backend:
+  // Poll every 3 seconds ONLY while items are PROCESSING.
+  // When idle, slow down to 60 seconds to avoid flooding server logs.
+  const hasProcessing = uploads.some(
+    (u) => u.status === 'PROCESSING' || u.id.startsWith('temp-')
+  );
+
   useEffect(() => {
     let mounted = true;
-    const load = async () => {
+    let timer: NodeJS.Timeout;
+
+    const tick = async () => {
       try {
         const res = await fetch('/api/media-engine/uploads');
         if (res.ok && mounted) {
@@ -84,17 +92,23 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           }
         }
       } catch (err) {
-        console.error('Failed to fetch media uploads:', err);
+        if (mounted) console.error('Failed to fetch media uploads:', err);
+      } finally {
+        if (mounted) {
+          // 3s interval if items are currently optimizing; 60s if idle
+          timer = setTimeout(tick, hasProcessing ? 3000 : 60000);
+        }
       }
     };
 
-    load();
-    const interval = setInterval(load, 5000);
+    // Initial load or quick check if items started processing
+    timer = setTimeout(tick, hasProcessing ? 2500 : 60000);
+
     return () => {
       mounted = false;
-      clearInterval(interval);
+      clearTimeout(timer);
     };
-  }, []);
+  }, [hasProcessing]);
 
   // TICK EVERY 1 SECOND for smooth real-time countdown
   useEffect(() => {
@@ -217,18 +231,79 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
 
     setUploads((prev) => [...tempItems, ...prev]);
 
+    // Fetch backend upload configuration to allow direct upload for files (bypassing Vercel's 4.5 MB limit)
+    let directUploadUrl = '';
+    let directToken = '';
+    try {
+      const cfgRes = await fetch('/api/media-engine/upload-config');
+      if (cfgRes.ok) {
+        const cfg = await cfgRes.json();
+        directUploadUrl = cfg.uploadUrl || '';
+        directToken = cfg.token || '';
+      }
+    } catch {
+      // Continue with local proxy fallback
+    }
+
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i];
       const tempId = tempItems[i].id;
+
+      // Check max limit (25 MB)
+      if (file.size > 25 * 1024 * 1024) {
+        const errMsg = `${file.name} is ${formatBytes(file.size)}, exceeding the 25 MB maximum upload limit.`;
+        setUploadError(errMsg);
+        setUploads((prev) =>
+          prev.map((u) =>
+            u.id === tempId
+              ? {
+                  ...u,
+                  status: 'ERROR',
+                  tag: 'ERROR',
+                  error_message: errMsg,
+                  logs: [
+                    ...u.logs,
+                    { stage: 'Error', message: errMsg, timestamp: new Date().toISOString() },
+                  ],
+                }
+              : u
+          )
+        );
+        continue;
+      }
+
       const formData = new FormData();
-      formData.append('file', file);
+      formData.append('file', file, file.name);
       formData.append('include_thumbnail', String(includeThumbnail));
 
       try {
-        const res = await fetch('/api/media-engine/upload', {
-          method: 'POST',
-          body: formData,
-        });
+        let res: Response;
+        // If direct upload to backend is available and in browser, use direct upload to bypass Vercel 4.5 MB limit
+        if (directUploadUrl && directUploadUrl.startsWith('http')) {
+          const directHeaders: Record<string, string> = {};
+          if (directToken) {
+            directHeaders['Authorization'] = `Bearer ${directToken}`;
+          }
+          try {
+            res = await fetch(directUploadUrl, {
+              method: 'POST',
+              headers: directHeaders,
+              body: formData,
+              credentials: 'include',
+            });
+          } catch (directErr) {
+            console.warn('Direct upload failed, falling back to local proxy:', directErr);
+            res = await fetch('/api/media-engine/upload', {
+              method: 'POST',
+              body: formData,
+            });
+          }
+        } else {
+          res = await fetch('/api/media-engine/upload', {
+            method: 'POST',
+            body: formData,
+          });
+        }
 
         const data = await res.json().catch(() => ({}));
 
@@ -236,7 +311,14 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           // Replace optimistic placeholder with real record
           setUploads((prev) => [data, ...prev.filter((u) => u.id !== tempId && u.id !== data.id)]);
         } else {
-          const errMsg = data?.error || `Upload failed for ${file.name} (Status ${res.status})`;
+          let errMsg = data?.error;
+          if (!errMsg) {
+            if (res.status === 413) {
+              errMsg = `Payload too large for proxy (${formatBytes(file.size)}). Max allowed size is 25 MB.`;
+            } else {
+              errMsg = `Upload failed for ${file.name} (Status ${res.status})`;
+            }
+          }
           setUploadError(errMsg);
           // Update placeholder to show ERROR state
           setUploads((prev) =>
@@ -271,6 +353,14 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
                   status: 'ERROR',
                   tag: 'ERROR',
                   error_message: message,
+                  logs: [
+                    ...u.logs,
+                    {
+                      stage: 'Error',
+                      message: `Network error: ${message}`,
+                      timestamp: new Date().toISOString(),
+                    },
+                  ],
                 }
               : u
           )
