@@ -61,7 +61,7 @@ export default function HomePage() {
     .reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
 
   return (
-    <div className="space-y-8">
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       <div>
         <h1 className="text-2xl font-bold tracking-tight text-white">Developer Portal</h1>
         <p className="text-sm text-zinc-400 mt-1">

@@ -78,7 +78,7 @@ function LoginForm() {
   };
 
   return (
-    <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900/90 backdrop-blur-md p-8 shadow-2xl space-y-6 animate-in zoom-in-95 duration-200">
+    <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-[#18181b] p-8 shadow-2xl space-y-6">
       {/* Brand Header */}
       <div className="space-y-2">
         <div className="flex items-center gap-3">
@@ -115,14 +115,14 @@ function LoginForm() {
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Enter administrator password..."
               disabled={submitting || lockoutSeconds > 0}
-              className="w-full pl-3.5 pr-10 py-2.5 text-xs bg-zinc-950 border border-zinc-800 rounded-lg text-white placeholder-zinc-600 focus:outline-none focus:border-zinc-500 focus:ring-1 focus:ring-zinc-500 transition-colors disabled:opacity-50 font-mono"
+              className="w-full pl-3.5 pr-10 py-2.5 text-xs bg-[#141416] border border-zinc-700/80 rounded-lg text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:bg-[#1a1a1d] transition-colors disabled:opacity-50 font-mono"
               autoFocus
             />
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
               tabIndex={-1}
-              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-500 hover:text-zinc-300 transition-colors"
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white transition-colors"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
@@ -182,10 +182,10 @@ function LoginForm() {
 
 export default function LoginPage() {
   return (
-    <div className="min-h-screen bg-[#0d0d0d] text-white flex flex-col items-center justify-center p-4 selection:bg-zinc-700 selection:text-white">
+    <div className="flex-1 w-full min-h-screen bg-[#121212] text-white flex flex-col items-center justify-center p-4 selection:bg-zinc-700 selection:text-white">
       <Suspense
         fallback={
-          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-zinc-900 p-8 text-center text-zinc-500 text-xs">
+          <div className="w-full max-w-md rounded-2xl border border-zinc-800 bg-[#18181b] p-8 text-center text-zinc-500 text-xs">
             <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2 text-zinc-400" />
             <span>Loading login screen...</span>
           </div>

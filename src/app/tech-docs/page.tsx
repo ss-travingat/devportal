@@ -19,7 +19,7 @@ export default function TechDocsIndexPage() {
   }, []);
 
   return (
-    <div className="space-y-6">
+    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 pb-2 border-b border-zinc-800">
         <div>
           <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2">
