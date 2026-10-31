@@ -1,9 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Subscription, SubscriptionFormData } from '@/types/subscription';
-import { loadSubscriptions, saveSubscriptions } from '@/lib/storage';
+import { saveSubscriptions } from '@/lib/storage';
 import SubscriptionTable from '@/components/SubscriptionTable';
 import SubscriptionFormModal from '@/components/SubscriptionFormModal';
 import SubscriptionDetailModal from '@/components/SubscriptionDetailModal';
@@ -20,30 +20,38 @@ export default function ServicePaymentsPage() {
   const [detailSubscription, setDetailSubscription] = useState<Subscription | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // Fetch subscriptions from backend
-  const fetchSubscriptions = useCallback(async () => {
-    try {
-      setIsLoading(true);
-      const res = await fetch('/api/subscriptions');
-      if (!res.ok) {
-        throw new Error(`Failed to load subscriptions (${res.status})`);
-      }
-      const data = await res.json();
-      if (Array.isArray(data)) {
-        setSubscriptions(data);
-        saveSubscriptions(data);
-      }
-    } catch (err: unknown) {
-      console.error('Failed to load subscriptions:', err);
-      // Keep cached state if available
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
-
+  // Fetch subscriptions from backend on mount (asynchronous only to prevent cascading renders)
   useEffect(() => {
-    fetchSubscriptions();
-  }, [fetchSubscriptions]);
+    let isMounted = true;
+
+    async function loadSubscriptions() {
+      try {
+        const res = await fetch('/api/subscriptions');
+        if (!res.ok) {
+          throw new Error(`Failed to load subscriptions (${res.status})`);
+        }
+        const data = await res.json();
+        if (isMounted && Array.isArray(data)) {
+          setSubscriptions(data);
+          saveSubscriptions(data);
+        }
+      } catch (err: unknown) {
+        if (isMounted) {
+          console.error('Failed to load subscriptions:', err);
+        }
+      } finally {
+        if (isMounted) {
+          setIsLoading(false);
+        }
+      }
+    }
+
+    loadSubscriptions();
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleCreateOrUpdate = async (data: SubscriptionFormData, editId?: string) => {
     setErrorMessage(null);
