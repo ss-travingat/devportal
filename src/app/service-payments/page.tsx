@@ -10,7 +10,7 @@ import SubscriptionDetailModal from '@/components/SubscriptionDetailModal';
 import SubscriptionMetrics from '@/components/SubscriptionMetrics';
 
 export default function ServicePaymentsPage() {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => loadSubscriptions());
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
