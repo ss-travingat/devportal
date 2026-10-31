@@ -1,12 +1,13 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { Search, FileText, Clock, User, Tag } from 'lucide-react';
 import { DocMeta } from '@/types/docs';
 
 interface TechDocsListProps {
   docs: DocMeta[];
-  onSelect: (slug: string) => void;
+  onSelect?: (slug: string) => void;
 }
 
 export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
@@ -67,9 +68,10 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
             {/* Doc cards */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {categoryDocs.map((doc) => (
-                <button
+                <Link
                   key={doc.slug}
-                  onClick={() => onSelect(doc.slug)}
+                  href={`/tech-docs/${doc.slug}`}
+                  onClick={() => onSelect?.(doc.slug)}
                   className="group text-left p-5 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg transition-all duration-150 hover:bg-zinc-900/80 flex flex-col gap-3"
                 >
                   <div className="flex items-start justify-between gap-3">
@@ -106,7 +108,7 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
                       </span>
                     )}
                   </div>
-                </button>
+                </Link>
               ))}
             </div>
           </div>
@@ -115,4 +117,3 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
     </div>
   );
 }
-
