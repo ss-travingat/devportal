@@ -1,7 +1,7 @@
 'use client';
 
-import React from 'react';
-import { X, Clock, FileText, Trash2, AlertTriangle } from 'lucide-react';
+import React, { useState } from 'react';
+import { X, FileText, Trash2, AlertTriangle, Copy, Check, ExternalLink, HardDrive, ShieldCheck } from 'lucide-react';
 import { MediaEngineUpload } from '@/types/media';
 
 interface MediaLogsModalProps {
@@ -11,6 +11,8 @@ interface MediaLogsModalProps {
 }
 
 export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsModalProps) {
+  const [copied, setCopied] = useState(false);
+
   if (!isOpen || !upload) return null;
 
   const formatBytes = (bytes: number | null) => {
@@ -21,6 +23,15 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
 
   const isLive = upload.is_live;
   const isFailed = upload.status === 'ERROR' || !!upload.error_message;
+  const isPermanent = upload.is_permanent ?? (upload.expires_at === null);
+  const assetUrl = upload.asset_url || upload.optimized_url;
+
+  const handleCopy = () => {
+    if (!assetUrl) return;
+    navigator.clipboard.writeText(assetUrl);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 2000);
+  };
 
   return (
     <div
@@ -41,11 +52,16 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
               {isFailed ? <AlertTriangle className="w-5 h-5" /> : <FileText className="w-5 h-5" />}
             </div>
             <div>
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-base font-bold text-white truncate max-w-md">
                   {upload.filename}
                 </h2>
-                {isLive ? (
+                {isPermanent && isLive ? (
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/80">
+                    <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                    PERMANENT
+                  </span>
+                ) : isLive ? (
                   <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-emerald-950/80 text-emerald-400 border border-emerald-800/80">
                     <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
                     LIVE
@@ -64,6 +80,16 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
                     {upload.status}
                   </span>
                 )}
+
+                {upload.is_compressed ? (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950/60 text-indigo-300 border border-indigo-800/60">
+                    AVIF COMPRESSED
+                  </span>
+                ) : (
+                  <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                    ORIGINAL FORMAT
+                  </span>
+                )}
               </div>
               <p className="text-xs text-zinc-400 mt-0.5 font-mono">ID: {upload.id}</p>
             </div>
@@ -79,16 +105,56 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
         </div>
 
         {/* Content */}
-        <div className="p-6 space-y-6 overflow-y-auto flex-1 min-h-0 text-xs">
+        <div className="p-6 space-y-5 overflow-y-auto flex-1 min-h-0 text-xs">
           {/* Failure Alert Banner */}
           {isFailed && (
             <div className="p-3.5 rounded-lg border border-red-900/60 bg-red-950/30 text-red-300 flex items-start gap-3">
               <AlertTriangle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
               <div>
-                <p className="font-semibold text-red-200">Optimization Failed</p>
+                <p className="font-semibold text-red-200">Processing Failed</p>
                 <p className="text-[11px] mt-0.5 leading-relaxed text-red-300 font-mono">
                   {upload.error_message || 'The upload or processing step could not be completed.'}
                 </p>
+              </div>
+            </div>
+          )}
+
+          {/* Public Asset URL Box */}
+          {assetUrl && (
+            <div className="p-3.5 rounded-lg border border-zinc-800 bg-zinc-950/80 space-y-2">
+              <div className="flex items-center justify-between">
+                <span className="text-[11px] font-semibold text-zinc-300 flex items-center gap-1.5">
+                  <HardDrive className="w-3.5 h-3.5 text-zinc-400" />
+                  Public Asset URL (Permanent Cloudflare R2)
+                </span>
+                <span className="text-[10px] font-mono text-zinc-500">
+                  Bucket: {upload.bucket_name || 'travingat-assets'}
+                </span>
+              </div>
+              <div className="flex items-center gap-2">
+                <input
+                  type="text"
+                  readOnly
+                  value={assetUrl}
+                  className="flex-1 px-3 py-1.5 text-xs font-mono bg-zinc-900 border border-zinc-800 rounded text-zinc-200 select-all focus:outline-none"
+                />
+                <button
+                  type="button"
+                  onClick={handleCopy}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-950 bg-white hover:bg-zinc-200 rounded transition-colors shrink-0 cursor-pointer"
+                >
+                  {copied ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5" />}
+                  <span>{copied ? 'Copied' : 'Copy'}</span>
+                </button>
+                <a
+                  href={assetUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 border border-zinc-800 rounded transition-colors shrink-0"
+                  title="Open in new tab"
+                >
+                  <ExternalLink className="w-3.5 h-3.5" />
+                </a>
               </div>
             </div>
           )}
@@ -103,54 +169,39 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
             </div>
 
             <div className="p-3 bg-zinc-950/60 border border-zinc-800/80 rounded-lg">
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Optimized (AVIF)</span>
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Stored Size</span>
               <span className="text-sm font-semibold text-zinc-200 font-mono mt-1 block">
-                {upload.optimized_size ? formatBytes(upload.optimized_size) : '—'}
+                {upload.optimized_size ? formatBytes(upload.optimized_size) : formatBytes(upload.original_size)}
+              </span>
+            </div>
+
+            <div className="p-3 bg-zinc-950/60 border border-zinc-800/80 rounded-lg">
+              <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Compression</span>
+              <span className="text-sm font-semibold text-zinc-200 font-mono mt-1 block">
+                {upload.is_compressed ? 'AVIF (PyVips)' : 'Off (Original)'}
               </span>
             </div>
 
             <div className="p-3 bg-zinc-950/60 border border-zinc-800/80 rounded-lg">
               <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">Space Saved</span>
               <span className="text-sm font-semibold text-emerald-400 font-mono mt-1 block">
-                {upload.savings_pct > 0 ? `-${upload.savings_pct}%` : '—'}
-              </span>
-            </div>
-
-            <div className="p-3 bg-zinc-950/60 border border-zinc-800/80 rounded-lg">
-              <span className="text-[10px] text-zinc-500 uppercase tracking-wider block">720p Thumbnail</span>
-              <span className="text-sm font-semibold text-zinc-200 font-mono mt-1 block">
-                {upload.has_thumbnail ? 'Included' : 'None'}
+                {upload.savings_pct > 0 ? `-${upload.savings_pct}%` : '0%'}
               </span>
             </div>
           </div>
 
-          {/* Retention Notice */}
-          {!isFailed && (
-            <div className={`p-3.5 rounded-lg border text-xs flex items-start gap-3 ${
-              isLive 
-                ? 'bg-emerald-950/20 border-emerald-900/40 text-emerald-300' 
-                : 'bg-zinc-950 border-zinc-800 text-zinc-400'
-            }`}>
-              <Clock className={`w-4 h-4 shrink-0 mt-0.5 ${isLive ? 'text-emerald-400' : 'text-zinc-500'}`} />
-              <div>
-                <p className="font-medium text-zinc-200">
-                  {isLive ? '15-Minute Live Window Active' : 'Retention Period Expired'}
-                </p>
-                <p className="text-[11px] mt-0.5 leading-relaxed text-zinc-400">
-                  {isLive ? (
-                    <>
-                      This photo is currently stored in Cloudflare R2 and can be downloaded immediately. 
-                      It will be permanently deleted from R2 storage and the database once the 15-minute optimization window finishes.
-                    </>
-                  ) : (
-                    <>
-                      The 15-minute optimization window has finished. The image files and database records have been permanently purged from Cloudflare R2. This audit log remains preserved.
-                    </>
-                  )}
-                </p>
-              </div>
+          {/* Permanent Storage Notice */}
+          <div className="p-3.5 rounded-lg border border-emerald-900/40 bg-emerald-950/20 text-xs flex items-start gap-3 text-emerald-300">
+            <ShieldCheck className="w-4 h-4 shrink-0 mt-0.5 text-emerald-400" />
+            <div>
+              <p className="font-semibold text-zinc-200">
+                Permanent Asset Storage Active
+              </p>
+              <p className="text-[11px] mt-0.5 leading-relaxed text-zinc-400">
+                This asset is permanently hosted in the Cloudflare R2 bucket <strong>{upload.bucket_name || 'travingat-assets'}</strong> in the <strong>assets/</strong> directory. It has no auto-expiration or scheduled purge.
+              </p>
             </div>
-          )}
+          </div>
 
           {/* Audit Logs Timeline */}
           <div className="space-y-3">
@@ -198,7 +249,7 @@ export default function MediaLogsModal({ upload, isOpen, onClose }: MediaLogsMod
           <button
             type="button"
             onClick={onClose}
-            className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md transition-colors"
+            className="px-4 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md transition-colors cursor-pointer"
           >
             Close
           </button>

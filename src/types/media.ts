@@ -27,9 +27,13 @@ export interface MediaEngineUpload {
   savings_pct: number;
   has_thumbnail: boolean;
   thumbnail_size: number | null;
+  is_compressed: boolean;
+  bucket_name: string;
+  asset_url: string | null;
   status: 'PROCESSING' | 'READY' | 'EXPIRED' | 'ERROR';
-  tag: 'LIVE' | 'EXPIRED' | 'PROCESSING' | 'ERROR';
+  tag: 'PERMANENT' | 'LIVE' | 'EXPIRED' | 'PROCESSING' | 'ERROR';
   is_live: boolean;
+  is_permanent?: boolean;
   is_expired: boolean;
   remaining_seconds: number;
   optimized_url: string | null;

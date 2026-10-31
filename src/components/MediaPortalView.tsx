@@ -8,10 +8,14 @@ import {
   Search,
   RefreshCw,
   Image as ImageIcon,
-  Trash2,
   FileText,
   Sliders,
   AlertTriangle,
+  Copy,
+  Check,
+  ExternalLink,
+  Link as LinkIcon,
+  ShieldCheck,
 } from 'lucide-react';
 import { MediaEngineUpload } from '@/types/media';
 import MediaLogsModal from './MediaLogsModal';
@@ -26,8 +30,8 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
   const [uploadProgress, setUploadProgress] = useState(0);
   const [uploadError, setUploadError] = useState<string | null>(null);
 
-  // Configuration: thumbnail option
-  const [includeThumbnail, setIncludeThumbnail] = useState(true);
+  // Configuration: compression toggle (OFF by default)
+  const [compressImage, setCompressImage] = useState(false);
 
   // Selected files for drag-and-drop
   const [dragActive, setDragActive] = useState(false);
@@ -35,15 +39,25 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
 
   // Search & filter
   const [search, setSearch] = useState('');
-  const [filterTab, setFilterTab] = useState<'all' | 'live' | 'expired'>('all');
+  const [filterTab, setFilterTab] = useState<'all' | 'original' | 'compressed'>('all');
 
   // Logs modal
   const [activeLogUpload, setActiveLogUpload] = useState<MediaEngineUpload | null>(null);
   const [isLogsModalOpen, setIsLogsModalOpen] = useState(false);
 
+  // Copy feedback state
+  const [copiedId, setCopiedId] = useState<string | null>(null);
+
   // Download all loading state
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
-  const [downloadingSingleZipId, setDownloadingSingleZipId] = useState<string | null>(null);
+
+  // Copy asset URL with visual feedback
+  const copyUrlToClipboard = (id: string, url: string) => {
+    if (!url) return;
+    navigator.clipboard.writeText(url);
+    setCopiedId(id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   // Polling / fetching uploads list from backend
   const refreshList = async () => {
@@ -53,7 +67,6 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
         const data = await res.json();
         if (Array.isArray(data.uploads)) {
           setUploads((prev) => {
-            // Keep any active in-flight temp items that haven't landed yet
             const pendingTemp = prev.filter((u) => u.id.startsWith('temp-'));
             const serverIds = new Set(data.uploads.map((u: MediaEngineUpload) => u.id));
             const retainedTemp = pendingTemp.filter((t) => !serverIds.has(t.id));
@@ -67,8 +80,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
   };
 
   // Adaptive sync with backend:
-  // Poll every 3 seconds ONLY while items are PROCESSING.
-  // When idle, slow down to 60 seconds to avoid flooding server logs.
+  // Poll every 3s while items are PROCESSING; 60s when idle
   const hasProcessing = uploads.some(
     (u) => u.status === 'PROCESSING' || u.id.startsWith('temp-')
   );
@@ -95,14 +107,12 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
         if (mounted) console.error('Failed to fetch media uploads:', err);
       } finally {
         if (mounted) {
-          // 3s interval if items are currently optimizing; 60s if idle
           timer = setTimeout(tick, hasProcessing ? 3000 : 60000);
         }
       }
     };
 
-    // Initial load or quick check if items started processing
-    timer = setTimeout(tick, hasProcessing ? 2500 : 60000);
+    timer = setTimeout(tick, hasProcessing ? 2000 : 60000);
 
     return () => {
       mounted = false;
@@ -110,47 +120,11 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
     };
   }, [hasProcessing]);
 
-  // TICK EVERY 1 SECOND for smooth real-time countdown
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setUploads((prevUploads) =>
-        prevUploads.map((u) => {
-          if (!u.is_live || u.remaining_seconds <= 0) return u;
-          const nextSeconds = u.remaining_seconds - 1;
-          if (nextSeconds <= 0) {
-            return {
-              ...u,
-              remaining_seconds: 0,
-              is_live: false,
-              is_expired: true,
-              tag: 'EXPIRED',
-              status: 'EXPIRED',
-            };
-          }
-          return {
-            ...u,
-            remaining_seconds: nextSeconds,
-          };
-        })
-      );
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, []);
-
   // Format file size
   const formatBytes = (bytes: number | null) => {
     if (!bytes || bytes <= 0) return '0 B';
     if (bytes >= 1024 * 1024) return (bytes / (1024 * 1024)).toFixed(2) + ' MB';
     return (bytes / 1024).toFixed(1) + ' KB';
-  };
-
-  // Format countdown mm:ss
-  const formatCountdown = (seconds: number) => {
-    if (seconds <= 0) return '00:00';
-    const m = Math.floor(seconds / 60);
-    const s = seconds % 60;
-    return `${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
   // Drag & drop handlers
@@ -199,20 +173,24 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
     setIsUploading(true);
     setUploadProgress(10);
 
-    // Create immediate optimistic placeholder items so the user SEES THEM AT ONCE!
+    // Create immediate optimistic placeholder items
     const tempItems: MediaEngineUpload[] = validFiles.map((file, idx) => ({
       id: `temp-${Date.now()}-${idx}`,
       filename: file.name,
       original_size: file.size,
-      optimized_size: null,
+      optimized_size: compressImage ? null : file.size,
       savings_pct: 0,
-      has_thumbnail: includeThumbnail,
+      has_thumbnail: false,
       thumbnail_size: null,
+      is_compressed: compressImage,
+      bucket_name: 'travingat-assets',
+      asset_url: null,
       status: 'PROCESSING',
       tag: 'PROCESSING',
-      is_live: false,
+      is_live: true,
+      is_permanent: true,
       is_expired: false,
-      remaining_seconds: 900,
+      remaining_seconds: 0,
       optimized_url: null,
       thumbnail_url: null,
       created_at: new Date().toISOString(),
@@ -222,7 +200,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
       logs: [
         {
           stage: 'Uploading',
-          message: `Uploading ${file.name} to PyVips media engine...`,
+          message: `Streaming ${file.name} directly to Cloudflare R2 (travingat-assets)...`,
           timestamp: new Date().toISOString(),
         },
       ],
@@ -235,7 +213,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
       const file = validFiles[i];
       const tempId = tempItems[i].id;
 
-      // 1. Check max size limit (25 MB)
+      // Check max size limit (25 MB)
       if (file.size > 25 * 1024 * 1024) {
         const errMsg = `${file.name} is ${formatBytes(file.size)}, exceeding the 25 MB maximum upload limit.`;
         setUploadError(errMsg);
@@ -259,7 +237,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
       }
 
       try {
-        // 2. Request direct Cloudflare R2 presigned URL from backend
+        // 1. Request direct Cloudflare R2 presigned URL from backend
         const presignRes = await fetch('/api/media-engine/presign', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -267,7 +245,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
             filename: file.name,
             content_type: file.type || 'image/jpeg',
             size: file.size,
-            include_thumbnail: includeThumbnail,
+            compress: compressImage,
           }),
         });
 
@@ -278,21 +256,21 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
 
         const { upload_id, presigned_url, content_type: uploadContentType, upload: initialUpload } = presignData;
 
-        // Replace optimistic placeholder with official server record in PROCESSING state
+        // Replace optimistic placeholder with official server record
         if (initialUpload) {
           setUploads((prev) => [
             {
               ...initialUpload,
               logs: [
                 ...initialUpload.logs,
-                { stage: 'Uploading', message: `Streaming directly to Cloudflare R2...`, timestamp: new Date().toISOString() },
+                { stage: 'Uploading', message: 'Streaming directly to Cloudflare R2...', timestamp: new Date().toISOString() },
               ],
             },
             ...prev.filter((u) => u.id !== tempId && u.id !== upload_id),
           ]);
         }
 
-        // 3. Stream raw file DIRECTLY to Cloudflare R2 via HTTP PUT (zero proxy limits, zero VPS load)
+        // 2. Stream raw file DIRECTLY to Cloudflare R2 via HTTP PUT
         await new Promise<void>((resolve, reject) => {
           const xhr = new XMLHttpRequest();
           xhr.open('PUT', presigned_url, true);
@@ -317,7 +295,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           xhr.send(file);
         });
 
-        // 4. Trigger PyVips optimization pipeline on backend
+        // 3. Finalize upload or trigger PyVips AVIF optimization on backend
         const processRes = await fetch('/api/media-engine/process', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -328,7 +306,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
         if (processRes.ok && processData.id) {
           setUploads((prev) => [processData, ...prev.filter((u) => u.id !== processData.id)]);
         } else {
-          throw new Error(processData?.error || 'Failed to trigger optimization pipeline');
+          throw new Error(processData?.error || 'Failed to finalize asset upload');
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
@@ -366,9 +344,9 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
   };
 
   // Download single image file
-  const handleDownloadSingle = (upload: MediaEngineUpload, type: 'optimized' | 'thumbnail' = 'optimized') => {
+  const handleDownloadSingle = (upload: MediaEngineUpload) => {
     if (upload.is_expired) return;
-    const downloadUrl = `/api/media-engine/download?id=${encodeURIComponent(upload.id)}&type=${encodeURIComponent(type)}`;
+    const downloadUrl = `/api/media-engine/download?id=${encodeURIComponent(upload.id)}`;
     const a = document.createElement('a');
     a.href = downloadUrl;
     a.download = '';
@@ -377,47 +355,14 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
     a.remove();
   };
 
-  // Download single upload as a ZIP with structured folder: folder -> image.avif and thumbnail.avif
-  const handleDownloadSingleZip = async (upload: MediaEngineUpload) => {
-    if (upload.is_expired) return;
-    setDownloadingSingleZipId(upload.id);
-    try {
-      const res = await fetch('/api/media-engine/download-zip', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ids: [upload.id] }),
-      });
-
-      if (!res.ok) {
-        throw new Error('Failed to generate ZIP download');
-      }
-
-      const blob = await res.blob();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      const baseName = upload.filename.replace(/\.[^/.]+$/, '');
-      a.download = `${baseName}_bundle.zip`;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      window.URL.revokeObjectURL(url);
-    } catch (err) {
-      console.error('Single ZIP download failed:', err);
-      alert('Could not download ZIP. The image may have expired.');
-    } finally {
-      setDownloadingSingleZipId(null);
-    }
-  };
-
-  // Download all live as ZIP (each photo gets its own folder: folder -> image.avif and thumbnail.avif)
+  // Download all ready items as ZIP
   const handleDownloadAllZip = async () => {
-    const liveItems = uploads.filter((u) => u.is_live);
-    if (liveItems.length === 0) return;
+    const readyItems = uploads.filter((u) => u.status === 'READY');
+    if (readyItems.length === 0) return;
 
     setIsDownloadingZip(true);
     try {
-      const ids = liveItems.map((u) => u.id);
+      const ids = readyItems.map((u) => u.id);
       const res = await fetch('/api/media-engine/download-zip', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -432,14 +377,14 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = 'travingat_optimized_media.zip';
+      a.download = 'travingat_assets.zip';
       document.body.appendChild(a);
       a.click();
       a.remove();
       window.URL.revokeObjectURL(url);
     } catch (err) {
       console.error('ZIP download failed:', err);
-      alert('Failed to generate ZIP download. Images may have expired.');
+      alert('Failed to generate ZIP download.');
     } finally {
       setIsDownloadingZip(false);
     }
@@ -451,16 +396,15 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
       const matchesSearch = u.filename.toLowerCase().includes(search.toLowerCase());
       if (!matchesSearch) return false;
 
-      // In Live tab, show both confirmed live and currently processing items
-      if (filterTab === 'live') return u.is_live || u.status === 'PROCESSING';
-      if (filterTab === 'expired') return u.is_expired;
+      if (filterTab === 'original') return !u.is_compressed;
+      if (filterTab === 'compressed') return u.is_compressed;
       return true;
     });
   }, [uploads, search, filterTab]);
 
-  const liveCount = uploads.filter((u) => u.is_live || u.status === 'PROCESSING').length;
-  const expiredCount = uploads.filter((u) => u.is_expired).length;
-  const hasLiveItems = uploads.some((u) => u.is_live);
+  const originalCount = uploads.filter((u) => !u.is_compressed).length;
+  const compressedCount = uploads.filter((u) => u.is_compressed).length;
+  const hasReadyItems = uploads.some((u) => u.status === 'READY');
 
   return (
     <div className="space-y-8">
@@ -472,7 +416,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
             <span>Media Engine Image Optimizer</span>
           </h1>
           <p className="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
-            Upload individual images for instant PyVips AVIF optimization. Photos remain <strong>live for 15 minutes</strong> for immediate download, after which files are automatically purged from Cloudflare R2 and DB while the audit logs stay permanently.
+            Upload images directly to permanent Cloudflare R2 storage (<strong>travingat-assets</strong> bucket, <strong>assets/</strong> folder). Instant public CDN URLs are immediately ready to use anywhere. Optional PyVips AVIF compression available.
           </p>
         </div>
 
@@ -480,8 +424,8 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           <button
             type="button"
             onClick={refreshList}
-            className="p-2 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors"
-            title="Refresh status"
+            className="p-2 text-xs font-medium text-zinc-400 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors cursor-pointer"
+            title="Refresh asset list"
           >
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
@@ -507,32 +451,32 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
 
       {/* Upload & Configuration Card */}
       <div className="p-6 bg-zinc-900 border border-zinc-800 rounded-xl space-y-5 shadow-xl">
-        {/* Configuration Row: Thumbnail Toggle */}
+        {/* Configuration Row: Compression Toggle (OFF by default) */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-zinc-800/80">
           <div className="space-y-1">
             <span className="text-xs font-semibold text-zinc-200 flex items-center gap-2">
-              <span>Thumbnail Generation Setting</span>
+              <span>Image Compression (PyVips AVIF)</span>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-400 border border-zinc-700">
-                720p Variant
+                Off by default
               </span>
             </span>
             <p className="text-xs text-zinc-400 leading-relaxed max-w-xl">
-              {includeThumbnail
-                ? 'Thumbnails enabled: Optimizes main image + produces 720p thumbnail. Download options include individual image, thumbnail, or ZIP containing folder with both.'
-                : 'Thumbnails disabled: Optimizes main image only. Single photo downloads without extra thumbnail variants.'}
+              {compressImage
+                ? 'Compression enabled: Converts images to high-efficiency AVIF via PyVips (~80-95% smaller), saved permanently to travingat-assets/assets/.'
+                : 'Compression disabled: Uploads images in original format directly to travingat-assets/assets/. Instant completion, zero loss.'}
             </p>
           </div>
 
           <label className="relative inline-flex items-center cursor-pointer select-none shrink-0">
             <input
               type="checkbox"
-              checked={includeThumbnail}
-              onChange={(e) => setIncludeThumbnail(e.target.checked)}
+              checked={compressImage}
+              onChange={(e) => setCompressImage(e.target.checked)}
               className="sr-only peer"
             />
             <div className="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white peer-checked:after:bg-zinc-950"></div>
             <span className="ml-3 text-xs font-medium text-zinc-300">
-              {includeThumbnail ? 'Thumbnails Enabled' : 'Thumbnails Off'}
+              {compressImage ? 'Compress to AVIF (ON)' : 'Compression (OFF)'}
             </span>
           </label>
         </div>
@@ -544,10 +488,11 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           onDragOver={handleDrag}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`relative p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center flex flex-col items-center justify-center gap-3 ${dragActive
-            ? 'border-white bg-zinc-800/60 scale-[1.005]'
-            : 'border-zinc-700/80 bg-zinc-950/40 hover:bg-zinc-950/80 hover:border-zinc-500'
-            }`}
+          className={`relative p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center flex flex-col items-center justify-center gap-3 ${
+            dragActive
+              ? 'border-white bg-zinc-800/60 scale-[1.005]'
+              : 'border-zinc-700/80 bg-zinc-950/40 hover:bg-zinc-950/80 hover:border-zinc-500'
+          }`}
         >
           <input
             ref={fileInputRef}
@@ -564,10 +509,10 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
 
           <div>
             <p className="text-sm font-semibold text-white">
-              Drop individual photos here or <span className="underline underline-offset-2">browse files</span>
+              Drop photos here or <span className="underline underline-offset-2">browse files</span>
             </p>
             <p className="text-xs text-zinc-400 mt-1">
-              Supports JPEG, PNG, WebP, AVIF, TIFF, HEIC. Compressed to AVIF with PyVips.
+              Supports JPEG, PNG, WebP, AVIF, TIFF, HEIC. Permanent Cloudflare R2 asset storage.
             </p>
           </div>
 
@@ -580,7 +525,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
                 />
               </div>
               <span className="text-[11px] font-mono text-zinc-400 block text-center">
-                Optimizing & uploading: {uploadProgress}%
+                Uploading to R2: {uploadProgress}%
               </span>
             </div>
           )}
@@ -594,34 +539,36 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           <button
             type="button"
             onClick={() => setFilterTab('all')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'all'
-              ? 'bg-zinc-800 text-white border border-zinc-700'
-              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-              }`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              filterTab === 'all'
+                ? 'bg-zinc-800 text-white border border-zinc-700'
+                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+            }`}
           >
-            All Logs ({uploads.length})
+            All Assets ({uploads.length})
           </button>
           <button
             type="button"
-            onClick={() => setFilterTab('live')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'live'
-              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
-              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-              }`}
+            onClick={() => setFilterTab('original')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              filterTab === 'original'
+                ? 'bg-zinc-800 text-white border border-zinc-700'
+                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+            }`}
           >
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
-            Live ({liveCount})
+            Original ({originalCount})
           </button>
           <button
             type="button"
-            onClick={() => setFilterTab('expired')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'expired'
-              ? 'bg-zinc-800 text-zinc-300 border border-zinc-700'
-              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-              }`}
+            onClick={() => setFilterTab('compressed')}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors cursor-pointer ${
+              filterTab === 'compressed'
+                ? 'bg-indigo-950/80 text-indigo-300 border border-indigo-800/80'
+                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+            }`}
           >
-            <Trash2 className="w-3 h-3 text-red-400" />
-            Expired ({expiredCount})
+            <span className="w-1.5 h-1.5 rounded-full bg-indigo-400" />
+            AVIF Compressed ({compressedCount})
           </button>
         </div>
 
@@ -642,12 +589,13 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           <button
             type="button"
             onClick={handleDownloadAllZip}
-            disabled={!hasLiveItems || isDownloadingZip}
-            className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-colors shadow ${hasLiveItems && !isDownloadingZip
-              ? 'bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer'
-              : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/60'
-              }`}
-            title="Download all live photos structured in folders inside a single ZIP"
+            disabled={!hasReadyItems || isDownloadingZip}
+            className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-colors shadow ${
+              hasReadyItems && !isDownloadingZip
+                ? 'bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer'
+                : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/60'
+            }`}
+            title="Download ready assets in a ZIP archive"
           >
             {isDownloadingZip ? (
               <>
@@ -668,184 +616,190 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
       {filteredUploads.length === 0 ? (
         <div className="py-20 text-center border border-zinc-800/80 rounded-xl bg-zinc-950/40 text-zinc-500 text-xs">
           <ImageIcon className="w-8 h-8 text-zinc-600 mx-auto mb-2" />
-          <p>No images matching the selected filter.</p>
+          <p>No assets matching the selected filter.</p>
         </div>
       ) : (
         <div className="space-y-3">
-          {filteredUploads.map((upload) => (
-            <div
-              key={upload.id}
-              className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${upload.is_live
-                ? 'bg-zinc-900/90 border-zinc-800 hover:border-zinc-700 shadow-lg'
-                : upload.status === 'PROCESSING'
-                  ? 'bg-zinc-900/80 border-blue-900/50 shadow-md'
-                  : upload.status === 'ERROR'
+          {filteredUploads.map((upload) => {
+            const assetUrl = upload.asset_url || upload.optimized_url;
+
+            return (
+              <div
+                key={upload.id}
+                className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${
+                  upload.status === 'READY'
+                    ? 'bg-zinc-900/90 border-zinc-800 hover:border-zinc-700 shadow-lg'
+                    : upload.status === 'PROCESSING'
+                    ? 'bg-zinc-900/80 border-blue-900/50 shadow-md'
+                    : upload.status === 'ERROR'
                     ? 'bg-zinc-950/80 border-red-900/60'
-                    : upload.is_expired
-                      ? 'bg-zinc-950/70 border-zinc-850 opacity-80'
-                      : 'bg-zinc-900/60 border-zinc-800'
+                    : 'bg-zinc-900/60 border-zinc-800'
                 }`}
-            >
-              {/* Left Column: Image preview & Meta */}
-              <div className="flex items-center gap-4 min-w-0">
-                <div className="w-14 h-14 rounded-lg bg-zinc-950 border border-zinc-800 overflow-hidden flex items-center justify-center shrink-0">
-                  {upload.is_live && upload.thumbnail_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={upload.thumbnail_url}
-                      alt={upload.filename}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : upload.is_live && upload.optimized_url ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
-                      src={upload.optimized_url}
-                      alt={upload.filename}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : upload.status === 'PROCESSING' ? (
-                    <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
-                  ) : upload.status === 'ERROR' ? (
-                    <AlertTriangle className="w-6 h-6 text-red-400" />
-                  ) : (
-                    <ImageIcon className="w-6 h-6 text-zinc-600" />
-                  )}
-                </div>
-
-                <div className="space-y-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <h3 className="text-sm font-semibold text-white truncate max-w-sm" title={upload.filename}>
-                      {upload.filename}
-                    </h3>
-
-                    {/* LIVE (with per-second countdown) / EXPIRED / PROCESSING / ERROR Tag */}
-                    {upload.is_live ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                        LIVE (⏱ {formatCountdown(upload.remaining_seconds)})
-                      </span>
+              >
+                {/* Left Column: Image preview & Details */}
+                <div className="flex items-start sm:items-center gap-4 min-w-0 flex-1">
+                  <div className="w-16 h-16 rounded-lg bg-zinc-950 border border-zinc-800 overflow-hidden flex items-center justify-center shrink-0">
+                    {assetUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={assetUrl}
+                        alt={upload.filename}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
                     ) : upload.status === 'PROCESSING' ? (
-                      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-blue-950 text-blue-400 border border-blue-800">
-                        <RefreshCw className="w-3 h-3 animate-spin" />
-                        PROCESSING
-                      </span>
+                      <RefreshCw className="w-5 h-5 text-blue-400 animate-spin" />
                     ) : upload.status === 'ERROR' ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-red-950 text-red-400 border border-red-800">
-                        FAILED
-                      </span>
-                    ) : upload.is_expired ? (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-zinc-800 text-zinc-400 border border-zinc-700">
-                        <Trash2 className="w-3 h-3 text-red-400" />
-                        EXPIRED
-                      </span>
-                    ) : null}
-
-                    {upload.has_thumbnail && (
-                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-zinc-800/80 text-zinc-400 border border-zinc-700">
-                        +720p Thumb
-                      </span>
+                      <AlertTriangle className="w-6 h-6 text-red-400" />
+                    ) : (
+                      <ImageIcon className="w-6 h-6 text-zinc-600" />
                     )}
                   </div>
 
-                  {/* Size and Savings Info */}
-                  <div className="flex items-center gap-3 text-xs text-zinc-400">
-                    <span>
-                      Original: <strong className="font-mono text-zinc-300">{formatBytes(upload.original_size)}</strong>
-                    </span>
-                    <span>→</span>
-                    <span>
-                      Optimized:{' '}
-                      <strong className="font-mono text-white">
-                        {upload.optimized_size ? formatBytes(upload.optimized_size) : upload.status === 'PROCESSING' ? 'Encoding...' : '—'}
-                      </strong>
-                    </span>
-                    {upload.savings_pct > 0 && (
-                      <span className="text-emerald-400 font-mono font-medium">
-                        (-{upload.savings_pct}%)
-                      </span>
+                  <div className="space-y-1.5 min-w-0 flex-1">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <h3 className="text-sm font-semibold text-white truncate max-w-sm" title={upload.filename}>
+                        {upload.filename}
+                      </h3>
+
+                      {/* Status Badges */}
+                      {upload.status === 'READY' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-emerald-950 text-emerald-400 border border-emerald-800">
+                          <ShieldCheck className="w-3 h-3 text-emerald-400" />
+                          PERMANENT
+                        </span>
+                      ) : upload.status === 'PROCESSING' ? (
+                        <span className="inline-flex items-center gap-1.5 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-blue-950 text-blue-400 border border-blue-800">
+                          <RefreshCw className="w-3 h-3 animate-spin" />
+                          PROCESSING
+                        </span>
+                      ) : upload.status === 'ERROR' ? (
+                        <span className="inline-flex items-center gap-1 px-2 py-0.5 text-[10px] font-mono font-medium rounded-full bg-red-950 text-red-400 border border-red-800">
+                          FAILED
+                        </span>
+                      ) : null}
+
+                      {upload.is_compressed ? (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-indigo-950/80 text-indigo-300 border border-indigo-800/70">
+                          AVIF COMPRESSED
+                        </span>
+                      ) : (
+                        <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-zinc-800 text-zinc-300 border border-zinc-700">
+                          ORIGINAL
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Size and Savings Info */}
+                    <div className="flex items-center gap-3 text-xs text-zinc-400 flex-wrap">
+                      {upload.is_compressed ? (
+                        <>
+                          <span>
+                            Original: <strong className="font-mono text-zinc-300">{formatBytes(upload.original_size)}</strong>
+                          </span>
+                          <span>→</span>
+                          <span>
+                            Optimized:{' '}
+                            <strong className="font-mono text-white">
+                              {upload.optimized_size ? formatBytes(upload.optimized_size) : 'Encoding...'}
+                            </strong>
+                          </span>
+                          {upload.savings_pct > 0 && (
+                            <span className="text-emerald-400 font-mono font-medium">
+                              (-{upload.savings_pct}%)
+                            </span>
+                          )}
+                        </>
+                      ) : (
+                        <span>
+                          File Size: <strong className="font-mono text-zinc-200">{formatBytes(upload.original_size)}</strong> (Lossless Original)
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Permanent Asset URL Pill with One-Click Copy */}
+                    {assetUrl && (
+                      <div className="flex items-center gap-2 pt-1 flex-wrap">
+                        <div className="flex items-center gap-1.5 px-2.5 py-1 bg-zinc-950 border border-zinc-800 rounded-md text-[11px] font-mono text-zinc-300 min-w-0 max-w-xs sm:max-w-md lg:max-w-lg overflow-hidden">
+                          <LinkIcon className="w-3 h-3 text-zinc-500 shrink-0" />
+                          <span className="truncate select-all" title={assetUrl}>
+                            {assetUrl}
+                          </span>
+                        </div>
+
+                        <button
+                          type="button"
+                          onClick={() => copyUrlToClipboard(upload.id, assetUrl)}
+                          className="inline-flex items-center gap-1 px-2.5 py-1 text-[11px] font-medium bg-zinc-800 hover:bg-zinc-700 text-zinc-200 hover:text-white border border-zinc-700 rounded-md transition-colors shrink-0 cursor-pointer"
+                          title="Copy Public Asset URL"
+                        >
+                          {copiedId === upload.id ? (
+                            <>
+                              <Check className="w-3 h-3 text-emerald-400" />
+                              <span className="text-emerald-400 font-semibold">Copied!</span>
+                            </>
+                          ) : (
+                            <>
+                              <Copy className="w-3 h-3" />
+                              <span>Copy URL</span>
+                            </>
+                          )}
+                        </button>
+
+                        <a
+                          href={assetUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="p-1 text-zinc-400 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md transition-colors shrink-0"
+                          title="Open asset URL in new tab"
+                        >
+                          <ExternalLink className="w-3 h-3" />
+                        </a>
+                      </div>
                     )}
                   </div>
                 </div>
-              </div>
 
-              {/* Right Column: Action Buttons ON THE SAME LINE */}
-              <div className="flex items-center gap-2 flex-wrap shrink-0 self-end md:self-center">
-                {/* View Logs Button */}
-                <button
-                  type="button"
-                  onClick={() => {
-                    setActiveLogUpload(upload);
-                    setIsLogsModalOpen(true);
-                  }}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md transition-colors"
-                >
-                  <FileText className="w-3.5 h-3.5" />
-                  <span>Logs</span>
-                </button>
+                {/* Right Column: Action Buttons */}
+                <div className="flex items-center gap-2 flex-wrap shrink-0 self-end md:self-center">
+                  {/* View Logs Button */}
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setActiveLogUpload(upload);
+                      setIsLogsModalOpen(true);
+                    }}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md transition-colors cursor-pointer"
+                  >
+                    <FileText className="w-3.5 h-3.5" />
+                    <span>Logs</span>
+                  </button>
 
-                {/* Download Actions (On the same line per image) */}
-                {upload.is_live ? (
-                  <>
-                    {/* 1. Download single image */}
+                  {/* Download Action */}
+                  {upload.status === 'READY' ? (
                     <button
                       type="button"
-                      onClick={() => handleDownloadSingle(upload, 'optimized')}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 rounded-md transition-colors shadow"
-                      title="Download single optimized image (image.avif)"
+                      onClick={() => handleDownloadSingle(upload)}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 rounded-md transition-colors shadow cursor-pointer"
+                      title="Download asset"
                     >
                       <Download className="w-3.5 h-3.5 stroke-[2.2]" />
                       <span>Download</span>
                     </button>
-
-                    {/* 2. Download thumbnail if requested */}
-                    {upload.has_thumbnail && (
-                      <button
-                        type="button"
-                        onClick={() => handleDownloadSingle(upload, 'thumbnail')}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-200 hover:text-white bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 rounded-md transition-colors"
-                        title="Download 720p thumbnail (thumbnail.avif)"
-                      >
-                        <Download className="w-3.5 h-3.5" />
-                        <span>Thumb</span>
-                      </button>
-                    )}
-
-                    {/* 3. Download All (ZIP) for this image: packages folder -> image.avif and thumbnail.avif */}
-                    <button
-                      type="button"
-                      disabled={downloadingSingleZipId === upload.id}
-                      onClick={() => handleDownloadSingleZip(upload)}
-                      className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-300 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-700/80 rounded-md transition-colors shadow-sm disabled:opacity-50"
-                      title="Download ZIP containing folder with image.avif and thumbnail.avif"
-                    >
-                      {downloadingSingleZipId === upload.id ? (
-                        <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                      ) : (
-                        <Archive className="w-3.5 h-3.5 text-zinc-400" />
-                      )}
-                      <span>Download All (ZIP)</span>
-                    </button>
-                  </>
-                ) : upload.status === 'PROCESSING' ? (
-                  <span className="inline-flex items-center gap-1.5 text-xs text-blue-400 font-mono px-3 py-1.5 rounded bg-blue-950/40 border border-blue-900/60">
-                    <RefreshCw className="w-3 h-3 animate-spin" />
-                    Optimizing...
-                  </span>
-                ) : upload.status === 'ERROR' ? (
-                  <span className="inline-flex items-center gap-1 text-xs text-red-400 font-mono px-3 py-1.5 rounded bg-red-950/40 border border-red-900/60">
-                    Processing Error
-                  </span>
-                ) : (
-                  <span
-                    className="inline-flex items-center gap-1 text-xs text-zinc-500 font-mono px-3 py-1.5 rounded bg-zinc-950/60 border border-zinc-850"
-                    title="Deleted from Cloudflare R2 after 15 minutes of optimization"
-                  >
-                    Expired & Purged
-                  </span>
-                )}
+                  ) : upload.status === 'PROCESSING' ? (
+                    <span className="inline-flex items-center gap-1.5 text-xs text-blue-400 font-mono px-3 py-1.5 rounded bg-blue-950/40 border border-blue-900/60">
+                      <RefreshCw className="w-3 h-3 animate-spin" />
+                      Optimizing...
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs text-red-400 font-mono px-3 py-1.5 rounded bg-red-950/40 border border-red-900/60">
+                      Processing Error
+                    </span>
+                  )}
+                </div>
               </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
 
