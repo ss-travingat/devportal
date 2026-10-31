@@ -21,6 +21,7 @@ export default function SubscriptionTable({
 }: SubscriptionTableProps) {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('ALL');
+  const [tierFilter, setTierFilter] = useState<string>('ALL');
 
   const filtered = useMemo(() => {
     return subscriptions.filter((sub) => {
@@ -39,10 +40,15 @@ export default function SubscriptionTable({
         emailText.includes(query);
 
       const matchStatus = statusFilter === 'ALL' || sub.status === statusFilter;
+      const isFree = Boolean(sub.isFree || sub.billingFrequency === 'Free' || Number(sub.amount) === 0);
+      const matchTier =
+        tierFilter === 'ALL' ||
+        (tierFilter === 'PAID' && !isFree) ||
+        (tierFilter === 'FREE' && isFree);
 
-      return matchSearch && matchStatus;
+      return matchSearch && matchStatus && matchTier;
     });
-  }, [subscriptions, searchQuery, statusFilter]);
+  }, [subscriptions, searchQuery, statusFilter, tierFilter]);
 
   return (
     <div className="space-y-4">
@@ -63,9 +69,20 @@ export default function SubscriptionTable({
           <div className="flex items-center gap-2">
             <Filter className="w-3.5 h-3.5 text-zinc-500" />
             <select
+              value={tierFilter}
+              onChange={(e) => setTierFilter(e.target.value)}
+              className="bg-zinc-900 border border-zinc-800 rounded-md px-2.5 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-400"
+              aria-label="Filter by pricing tier"
+            >
+              <option value="ALL">All Pricing</option>
+              <option value="PAID">Paid Only</option>
+              <option value="FREE">Free Tier Only</option>
+            </select>
+            <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
               className="bg-zinc-900 border border-zinc-800 rounded-md px-3 py-1.5 text-xs text-white focus:outline-none focus:border-zinc-400"
+              aria-label="Filter by subscription status"
             >
               <option value="ALL">All Statuses</option>
               <option value="Active">Active</option>
@@ -138,18 +155,34 @@ export default function SubscriptionTable({
 
                   {/* Amount */}
                   <td className="px-4 py-3.5 font-mono text-zinc-100">
-                    {item.currency} {Number(item.amount).toFixed(2)}
+                    {item.isFree || item.billingFrequency === 'Free' || Number(item.amount) === 0 ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Free Tier
+                      </span>
+                    ) : (
+                      <span>{item.currency} {Number(item.amount).toFixed(2)}</span>
+                    )}
                   </td>
 
                   {/* Frequency */}
-                  <td className="px-4 py-3.5 text-zinc-300">{item.billingFrequency}</td>
+                  <td className="px-4 py-3.5 text-zinc-300">
+                    {item.isFree || item.billingFrequency === 'Free' ? (
+                      <span className="text-emerald-400/90 text-xs font-medium">Free</span>
+                    ) : (
+                      item.billingFrequency
+                    )}
+                  </td>
 
                   {/* Next Billing Date */}
                   <td className="px-4 py-3.5 text-zinc-300">
-                    <div className="flex items-center gap-1.5">
-                      <Calendar className="w-3.5 h-3.5 text-zinc-500" />
-                      <span>{item.nextBillingDate}</span>
-                    </div>
+                    {item.nextBillingDate ? (
+                      <div className="flex items-center gap-1.5">
+                        <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                        <span>{item.nextBillingDate}</span>
+                      </div>
+                    ) : (
+                      <span className="text-zinc-500 italic text-[11px]">N/A (Free)</span>
+                    )}
                   </td>
 
                   {/* Status */}

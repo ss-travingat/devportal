@@ -10,9 +10,11 @@ interface SubscriptionMetricsProps {
 
 export default function SubscriptionMetrics({ subscriptions }: SubscriptionMetricsProps) {
   const activeSubs = subscriptions.filter((s) => s.status === 'Active');
+  const freeSubs = activeSubs.filter((s) => Boolean(s.isFree || s.billingFrequency === 'Free' || Number(s.amount) === 0));
+  const paidSubs = activeSubs.filter((s) => !Boolean(s.isFree || s.billingFrequency === 'Free' || Number(s.amount) === 0));
 
-  // Compute monthly normalized expenditure
-  const monthlyTotal = activeSubs.reduce((acc, sub) => {
+  // Compute monthly normalized expenditure for paid subscriptions
+  const monthlyTotal = paidSubs.reduce((acc, sub) => {
     const amt = parseFloat(sub.amount) || 0;
     switch (sub.billingFrequency) {
       case 'Monthly':
@@ -24,6 +26,8 @@ export default function SubscriptionMetrics({ subscriptions }: SubscriptionMetri
       case 'Weekly':
         return acc + amt * 4.33;
       case 'One-time':
+        return acc;
+      case 'Free':
         return acc;
       default:
         return acc + amt;
@@ -40,7 +44,9 @@ export default function SubscriptionMetrics({ subscriptions }: SubscriptionMetri
           <Layers className="w-4 h-4 text-zinc-500" />
         </div>
         <p className="text-2xl font-semibold text-white mt-2">{activeSubs.length}</p>
-        <p className="text-[11px] text-zinc-500 mt-1">{subscriptions.length} total tracked services</p>
+        <p className="text-[11px] text-zinc-500 mt-1">
+          {paidSubs.length} Paid • {freeSubs.length} Free Tier
+        </p>
       </div>
 
       <div className="p-4 bg-zinc-900 border border-zinc-800 rounded-lg">

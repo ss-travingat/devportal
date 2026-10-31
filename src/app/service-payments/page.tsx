@@ -1,7 +1,7 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
-import { Plus } from 'lucide-react';
+import React, { useState, useEffect, useCallback } from 'react';
+import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Subscription, SubscriptionFormData } from '@/types/subscription';
 import { loadSubscriptions, saveSubscriptions } from '@/lib/storage';
 import SubscriptionTable from '@/components/SubscriptionTable';
@@ -11,6 +11,8 @@ import SubscriptionMetrics from '@/components/SubscriptionMetrics';
 
 export default function ServicePaymentsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => loadSubscriptions());
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
   // Subscription modals
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -18,20 +20,33 @@ export default function ServicePaymentsPage() {
   const [detailSubscription, setDetailSubscription] = useState<Subscription | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // Load subscriptions from JSON via API on mount
-  useEffect(() => {
-    fetch('/api/subscriptions')
-      .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setSubscriptions(data);
-          saveSubscriptions(data);
-        }
-      })
-      .catch((err) => console.error('Failed to load from subscriptions.json:', err));
+  // Fetch subscriptions from backend
+  const fetchSubscriptions = useCallback(async () => {
+    try {
+      setIsLoading(true);
+      const res = await fetch('/api/subscriptions');
+      if (!res.ok) {
+        throw new Error(`Failed to load subscriptions (${res.status})`);
+      }
+      const data = await res.json();
+      if (Array.isArray(data)) {
+        setSubscriptions(data);
+        saveSubscriptions(data);
+      }
+    } catch (err: unknown) {
+      console.error('Failed to load subscriptions:', err);
+      // Keep cached state if available
+    } finally {
+      setIsLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    fetchSubscriptions();
+  }, [fetchSubscriptions]);
+
   const handleCreateOrUpdate = async (data: SubscriptionFormData, editId?: string) => {
+    setErrorMessage(null);
     if (editId) {
       try {
         const res = await fetch('/api/subscriptions', {
@@ -45,17 +60,16 @@ export default function ServicePaymentsPage() {
           setSubscriptions(updated);
           saveSubscriptions(updated);
           return;
+        } else if (!res.ok && resData.errors) {
+          const firstErr = Object.values(resData.errors)[0];
+          throw new Error(String(firstErr) || resData.message || 'Failed to update record');
         }
-      } catch (err) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'API update failed';
         console.error('API update failed:', err);
+        setErrorMessage(msg);
+        throw err;
       }
-      // Fallback
-      const timestamp = new Date().toISOString();
-      const updated = subscriptions.map((sub) =>
-        sub.id === editId ? { ...sub, ...data, updatedAt: timestamp } : sub
-      );
-      setSubscriptions(updated);
-      saveSubscriptions(updated);
     } else {
       try {
         const res = await fetch('/api/subscriptions', {
@@ -69,35 +83,36 @@ export default function ServicePaymentsPage() {
           setSubscriptions(updated);
           saveSubscriptions(updated);
           return;
+        } else if (!res.ok && resData.errors) {
+          const firstErr = Object.values(resData.errors)[0];
+          throw new Error(String(firstErr) || resData.message || 'Failed to create record');
         }
-      } catch (err) {
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : 'API create failed';
         console.error('API create failed:', err);
+        setErrorMessage(msg);
+        throw err;
       }
-      // Fallback
-      const timestamp = new Date().toISOString();
-      const newRecord: Subscription = {
-        ...data,
-        id: `sub-${Date.now()}`,
-        createdAt: timestamp,
-        updatedAt: timestamp,
-      };
-      const updated = [newRecord, ...subscriptions];
-      setSubscriptions(updated);
-      saveSubscriptions(updated);
     }
   };
 
   const handleDelete = async (id: string) => {
+    setErrorMessage(null);
     try {
-      await fetch(`/api/subscriptions?id=${encodeURIComponent(id)}`, {
+      const res = await fetch(`/api/subscriptions?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
-    } catch (err) {
+      if (!res.ok) {
+        throw new Error('Failed to delete subscription');
+      }
+      const updated = subscriptions.filter((s) => s.id !== id);
+      setSubscriptions(updated);
+      saveSubscriptions(updated);
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : 'API delete failed';
       console.error('API delete failed:', err);
+      setErrorMessage(msg);
     }
-    const updated = subscriptions.filter((s) => s.id !== id);
-    setSubscriptions(updated);
-    saveSubscriptions(updated);
   };
 
   const handleOpenEdit = (subscription: Subscription) => {
@@ -139,15 +154,38 @@ export default function ServicePaymentsPage() {
         </div>
       </div>
 
+      {errorMessage && (
+        <div className="p-3 bg-red-950/40 border border-red-800/80 rounded-md flex items-center justify-between text-xs text-red-200">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="w-4 h-4 text-red-400 shrink-0" />
+            <span>{errorMessage}</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => setErrorMessage(null)}
+            className="text-red-400 hover:text-red-200 text-xs underline ml-4"
+          >
+            Dismiss
+          </button>
+        </div>
+      )}
+
       <SubscriptionMetrics subscriptions={subscriptions} />
 
-      <SubscriptionTable
-        subscriptions={subscriptions}
-        onAddNew={handleOpenAdd}
-        onEdit={handleOpenEdit}
-        onDelete={handleDelete}
-        onView={handleViewDetails}
-      />
+      {isLoading && subscriptions.length === 0 ? (
+        <div className="flex flex-col items-center justify-center py-16 border border-zinc-800 rounded-lg bg-zinc-900/40 text-zinc-400">
+          <Loader2 className="w-6 h-6 animate-spin text-zinc-500 mb-2" />
+          <p className="text-xs">Loading subscription records from backend...</p>
+        </div>
+      ) : (
+        <SubscriptionTable
+          subscriptions={subscriptions}
+          onAddNew={handleOpenAdd}
+          onEdit={handleOpenEdit}
+          onDelete={handleDelete}
+          onView={handleViewDetails}
+        />
+      )}
 
       <SubscriptionFormModal
         key={isFormOpen ? (subscriptionToEdit?.id ?? 'create') : 'closed'}
@@ -169,4 +207,3 @@ export default function ServicePaymentsPage() {
     </div>
   );
 }
-

@@ -92,17 +92,28 @@ export default function SubscriptionDetailModal({
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
             <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-md">
               <p className="text-[11px] uppercase tracking-wider text-zinc-500">Amount</p>
-              <p className="text-base font-semibold text-white mt-1">
-                {subscription.currency} {Number(subscription.amount).toFixed(2)}
-              </p>
+              {subscription.isFree || subscription.billingFrequency === 'Free' || Number(subscription.amount) === 0 ? (
+                <div className="mt-1 flex items-center gap-1.5">
+                  <span className="text-base font-semibold text-emerald-400">Free</span>
+                  <span className="text-xs text-zinc-500 font-mono">($0.00)</span>
+                </div>
+              ) : (
+                <p className="text-base font-semibold text-white mt-1">
+                  {subscription.currency} {Number(subscription.amount).toFixed(2)}
+                </p>
+              )}
             </div>
             <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-md">
               <p className="text-[11px] uppercase tracking-wider text-zinc-500">Frequency</p>
-              <p className="text-base font-semibold text-white mt-1">{subscription.billingFrequency}</p>
+              <p className="text-base font-semibold text-white mt-1">
+                {subscription.isFree || subscription.billingFrequency === 'Free' ? 'Free Tier' : subscription.billingFrequency}
+              </p>
             </div>
             <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-md">
               <p className="text-[11px] uppercase tracking-wider text-zinc-500">Next Billing</p>
-              <p className="text-base font-semibold text-white mt-1">{subscription.nextBillingDate}</p>
+              <p className="text-base font-semibold text-white mt-1">
+                {subscription.nextBillingDate || <span className="text-zinc-500 text-sm font-normal">N/A (Free)</span>}
+              </p>
             </div>
             <div className="p-3 bg-zinc-950 border border-zinc-800 rounded-md">
               <p className="text-[11px] uppercase tracking-wider text-zinc-500">Status</p>
