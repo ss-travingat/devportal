@@ -32,6 +32,7 @@ export async function DELETE(request: NextRequest) {
   const backendUrl = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
   const cookieHeader = request.headers.get('cookie') || '';
 
+  let djangoSetCookies: string[] = [];
   try {
     const res = await fetch(`${backendUrl}/api/admin/session`, {
       method: 'DELETE',
@@ -40,21 +41,35 @@ export async function DELETE(request: NextRequest) {
       },
     });
 
-    const data = await res.json().catch(() => ({ ok: true }));
-    const nextResponse = NextResponse.json(data, { status: res.status });
-
-    const rawSetCookie = res.headers.get('set-cookie');
-    if (rawSetCookie) {
-      nextResponse.headers.set('set-cookie', rawSetCookie);
+    if (typeof res.headers.getSetCookie === 'function') {
+      djangoSetCookies = res.headers.getSetCookie();
+    } else {
+      const sc = res.headers.get('set-cookie');
+      if (sc) djangoSetCookies = [sc];
     }
-
-    // Explicitly delete cookie on response
-    nextResponse.cookies.delete('admin_session');
-    return nextResponse;
   } catch {
-    const nextResponse = NextResponse.json({ ok: true });
-    nextResponse.cookies.delete('admin_session');
-    return nextResponse;
+    // Continue with client cookie deletion if backend fails
   }
+
+  const nextResponse = NextResponse.json({ ok: true });
+
+  // 1. Forward Django's Set-Cookie headers
+  djangoSetCookies.forEach((c) => {
+    nextResponse.headers.append('set-cookie', c);
+  });
+
+  // 2. Explicitly expire cookie for root domain (.travingat.com)
+  nextResponse.headers.append(
+    'set-cookie',
+    'admin_session=; Path=/; Domain=.travingat.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; HttpOnly; Secure'
+  );
+
+  // 3. Explicitly expire cookie for host-only (localhost / preview)
+  nextResponse.headers.append(
+    'set-cookie',
+    'admin_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; HttpOnly'
+  );
+
+  return nextResponse;
 }
 

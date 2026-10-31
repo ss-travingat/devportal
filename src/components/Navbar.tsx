@@ -24,9 +24,15 @@ export default function Navbar() {
     } catch (err) {
       console.error('Logout error:', err);
     } finally {
-      setLoggingOut(false);
-      router.replace('/login');
-      router.refresh();
+      // Clear client-accessible cookie variants if any
+      try {
+        document.cookie = 'admin_session=; Path=/; Domain=.travingat.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+        document.cookie = 'admin_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
+      } catch {
+        // Ignore in non-browser env
+      }
+      // Hard navigation to /login?logout=1 to force full page reload and bypass cached middleware state
+      window.location.replace('/login?logout=1');
     }
   };
 

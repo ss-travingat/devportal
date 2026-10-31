@@ -14,8 +14,23 @@ export async function proxy(req: NextRequest) {
   const isAuthenticated = Boolean(adminCookie);
 
   const isLoginPage = url.pathname === '/login' || url.pathname === '/signin';
+  const isLogoutPage = url.pathname === '/logout';
   const isAuthApi = url.pathname.startsWith('/api/admin/');
   const isHealthApi = url.pathname === '/api/health';
+
+  // Dedicated logout route handler: Purge cookie and redirect to login
+  if (isLogoutPage) {
+    const res = NextResponse.redirect(new URL('/login?logout=1', req.url));
+    res.headers.append(
+      'set-cookie',
+      'admin_session=; Path=/; Domain=.travingat.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; HttpOnly; Secure'
+    );
+    res.headers.append(
+      'set-cookie',
+      'admin_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; HttpOnly'
+    );
+    return res;
+  }
 
   // Allow auth APIs and health check
   if (isAuthApi || isHealthApi) {
@@ -23,9 +38,22 @@ export async function proxy(req: NextRequest) {
   }
 
   // If on login/signin:
+  // - If ?logout=1 query present, purge cookies and allow viewing login page
   // - If already authenticated, redirect to destination
   // - If not authenticated, allow viewing login page
   if (isLoginPage) {
+    if (url.searchParams.has('logout')) {
+      const res = NextResponse.next({ request: { headers: requestHeaders } });
+      res.headers.append(
+        'set-cookie',
+        'admin_session=; Path=/; Domain=.travingat.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; HttpOnly; Secure'
+      );
+      res.headers.append(
+        'set-cookie',
+        'admin_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT; SameSite=Lax; HttpOnly'
+      );
+      return res;
+    }
     if (isAuthenticated) {
       const nextUrl = url.searchParams.get('next') || '/';
       return NextResponse.redirect(new URL(nextUrl, req.url));
