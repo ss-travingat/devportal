@@ -16,6 +16,7 @@ import {
   ExternalLink,
   Link as LinkIcon,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react';
 import { MediaEngineUpload } from '@/types/media';
 import MediaLogsModal from './MediaLogsModal';
@@ -390,9 +391,41 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
     }
   };
 
-  // Filtered uploads
+  // Delete single upload log record
+  const handleDeleteSingle = async (upload: MediaEngineUpload) => {
+    setUploads((prev) => prev.filter((u) => u.id !== upload.id));
+    try {
+      await fetch(`/api/media-engine/uploads/${encodeURIComponent(upload.id)}`, {
+        method: 'DELETE',
+      });
+    } catch (err) {
+      console.error('Failed to delete upload log:', err);
+    }
+  };
+
+  // Bulk clear previous expired or error logs
+  const [isClearing, setIsClearing] = useState(false);
+  const handleClearPreviousLogs = async () => {
+    setIsClearing(true);
+    setUploads((prev) => prev.filter((u) => u.status === 'READY' && !u.is_expired));
+    try {
+      await fetch('/api/media-engine/clear-logs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target: 'all_previous' }),
+      });
+      await refreshList();
+    } catch (err) {
+      console.error('Failed to clear previous logs:', err);
+    } finally {
+      setIsClearing(false);
+    }
+  };
+
+  // Filtered uploads: exclude legacy expired logs from active list
   const filteredUploads = useMemo(() => {
     return uploads.filter((u) => {
+      if (u.is_expired) return false;
       const matchesSearch = u.filename.toLowerCase().includes(search.toLowerCase());
       if (!matchesSearch) return false;
 
@@ -402,9 +435,11 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
     });
   }, [uploads, search, filterTab]);
 
-  const originalCount = uploads.filter((u) => !u.is_compressed).length;
-  const compressedCount = uploads.filter((u) => u.is_compressed).length;
-  const hasReadyItems = uploads.some((u) => u.status === 'READY');
+  const activeUploads = useMemo(() => uploads.filter((u) => !u.is_expired), [uploads]);
+  const originalCount = activeUploads.filter((u) => !u.is_compressed).length;
+  const compressedCount = activeUploads.filter((u) => u.is_compressed).length;
+  const hasReadyItems = activeUploads.some((u) => u.status === 'READY');
+  const hasPreviousLogs = uploads.some((u) => u.is_expired || u.status === 'ERROR');
 
   return (
     <div className="space-y-8">
@@ -584,6 +619,20 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
               className="pl-8 pr-3 py-1.5 text-xs bg-zinc-900 border border-zinc-800 rounded-md text-zinc-200 placeholder-zinc-500 focus:outline-none focus:border-zinc-600 transition-colors"
             />
           </div>
+
+          {/* Clear Previous Logs button if there are expired or failed items */}
+          {hasPreviousLogs && (
+            <button
+              type="button"
+              onClick={handleClearPreviousLogs}
+              disabled={isClearing}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-zinc-400 hover:text-red-400 bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 rounded-md transition-colors cursor-pointer shrink-0"
+              title="Remove all previous expired and failed logs"
+            >
+              <Trash2 className="w-3.5 h-3.5 text-zinc-500" />
+              <span>{isClearing ? 'Clearing...' : 'Clear Previous Logs'}</span>
+            </button>
+          )}
 
           {/* Global Download All (ZIP) button */}
           <button
@@ -773,6 +822,16 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
                   >
                     <FileText className="w-3.5 h-3.5" />
                     <span>Logs</span>
+                  </button>
+
+                  {/* Delete Log Entry Button */}
+                  <button
+                    type="button"
+                    onClick={() => handleDeleteSingle(upload)}
+                    className="p-1.5 text-zinc-400 hover:text-red-400 hover:bg-zinc-800 border border-zinc-700 rounded-md transition-colors cursor-pointer"
+                    title="Delete log entry"
+                  >
+                    <Trash2 className="w-3.5 h-3.5" />
                   </button>
 
                   {/* Download Action */}
