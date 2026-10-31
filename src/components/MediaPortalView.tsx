@@ -231,25 +231,11 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
 
     setUploads((prev) => [...tempItems, ...prev]);
 
-    // Fetch backend upload configuration to allow direct upload for files (bypassing Vercel's 4.5 MB limit)
-    let directUploadUrl = '';
-    let directToken = '';
-    try {
-      const cfgRes = await fetch('/api/media-engine/upload-config');
-      if (cfgRes.ok) {
-        const cfg = await cfgRes.json();
-        directUploadUrl = cfg.uploadUrl || '';
-        directToken = cfg.token || '';
-      }
-    } catch {
-      // Continue with local proxy fallback
-    }
-
     for (let i = 0; i < validFiles.length; i++) {
       const file = validFiles[i];
       const tempId = tempItems[i].id;
 
-      // Check max limit (25 MB)
+      // 1. Check max size limit (25 MB)
       if (file.size > 25 * 1024 * 1024) {
         const errMsg = `${file.name} is ${formatBytes(file.size)}, exceeding the 25 MB maximum upload limit.`;
         setUploadError(errMsg);
@@ -272,82 +258,84 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
         continue;
       }
 
-      const formData = new FormData();
-      formData.append('file', file, file.name);
-      formData.append('include_thumbnail', String(includeThumbnail));
-
       try {
-        let res: Response;
-        // If direct upload to backend is available and in browser, use direct upload to bypass Vercel 4.5 MB limit
-        if (directUploadUrl && directUploadUrl.startsWith('http')) {
-          const directHeaders: Record<string, string> = {};
-          if (directToken) {
-            directHeaders['Authorization'] = `Bearer ${directToken}`;
-          }
-          try {
-            res = await fetch(directUploadUrl, {
-              method: 'POST',
-              headers: directHeaders,
-              body: formData,
-              credentials: 'include',
-            });
-          } catch (directErr) {
-            console.warn('Direct upload failed, falling back to local proxy:', directErr);
-            res = await fetch('/api/media-engine/upload', {
-              method: 'POST',
-              body: formData,
-            });
-          }
-        } else {
-          res = await fetch('/api/media-engine/upload', {
-            method: 'POST',
-            body: formData,
-          });
+        // 2. Request direct Cloudflare R2 presigned URL from backend
+        const presignRes = await fetch('/api/media-engine/presign', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            filename: file.name,
+            content_type: file.type || 'image/jpeg',
+            size: file.size,
+            include_thumbnail: includeThumbnail,
+          }),
+        });
+
+        const presignData = await presignRes.json().catch(() => ({}));
+        if (!presignRes.ok || !presignData.presigned_url) {
+          throw new Error(presignData?.error || `Failed to get R2 presigned URL (Status ${presignRes.status})`);
         }
 
-        const data = await res.json().catch(() => ({}));
+        const { upload_id, presigned_url, content_type: uploadContentType, upload: initialUpload } = presignData;
 
-        if (res.ok && data.id) {
-          // Replace optimistic placeholder with real record
-          setUploads((prev) => [data, ...prev.filter((u) => u.id !== tempId && u.id !== data.id)]);
-        } else {
-          let errMsg = data?.error;
-          if (!errMsg) {
-            if (res.status === 413) {
-              errMsg = `Payload too large for proxy (${formatBytes(file.size)}). Max allowed size is 25 MB.`;
-            } else {
-              errMsg = `Upload failed for ${file.name} (Status ${res.status})`;
+        // Replace optimistic placeholder with official server record in PROCESSING state
+        if (initialUpload) {
+          setUploads((prev) => [
+            {
+              ...initialUpload,
+              logs: [
+                ...initialUpload.logs,
+                { stage: 'Uploading', message: `Streaming directly to Cloudflare R2...`, timestamp: new Date().toISOString() },
+              ],
+            },
+            ...prev.filter((u) => u.id !== tempId && u.id !== upload_id),
+          ]);
+        }
+
+        // 3. Stream raw file DIRECTLY to Cloudflare R2 via HTTP PUT (zero proxy limits, zero VPS load)
+        await new Promise<void>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', presigned_url, true);
+          xhr.setRequestHeader('Content-Type', uploadContentType || file.type || 'image/jpeg');
+
+          xhr.upload.onprogress = (evt) => {
+            if (evt.lengthComputable) {
+              const overallProgress = Math.round(((i + (evt.loaded / evt.total)) / validFiles.length) * 100);
+              setUploadProgress(overallProgress);
             }
-          }
-          setUploadError(errMsg);
-          // Update placeholder to show ERROR state
-          setUploads((prev) =>
-            prev.map((u) =>
-              u.id === tempId
-                ? {
-                    ...u,
-                    status: 'ERROR',
-                    tag: 'ERROR',
-                    error_message: errMsg,
-                    logs: [
-                      ...u.logs,
-                      {
-                        stage: 'Error',
-                        message: errMsg,
-                        timestamp: new Date().toISOString(),
-                      },
-                    ],
-                  }
-                : u
-            )
-          );
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve();
+            } else {
+              reject(new Error(`Cloudflare R2 storage rejected upload (Status ${xhr.status})`));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('Network error uploading directly to Cloudflare R2'));
+          xhr.send(file);
+        });
+
+        // 4. Trigger PyVips optimization pipeline on backend
+        const processRes = await fetch('/api/media-engine/process', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ upload_id }),
+        });
+
+        const processData = await processRes.json().catch(() => ({}));
+        if (processRes.ok && processData.id) {
+          setUploads((prev) => [processData, ...prev.filter((u) => u.id !== processData.id)]);
+        } else {
+          throw new Error(processData?.error || 'Failed to trigger optimization pipeline');
         }
       } catch (err: unknown) {
         const message = err instanceof Error ? err.message : String(err);
-        setUploadError(`Network error while uploading ${file.name}: ${message}`);
+        setUploadError(`Failed to upload ${file.name}: ${message}`);
         setUploads((prev) =>
           prev.map((u) =>
-            u.id === tempId
+            u.id === tempId || (u.filename === file.name && u.status === 'PROCESSING')
               ? {
                   ...u,
                   status: 'ERROR',
@@ -357,7 +345,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
                     ...u.logs,
                     {
                       stage: 'Error',
-                      message: `Network error: ${message}`,
+                      message: message,
                       timestamp: new Date().toISOString(),
                     },
                   ],
@@ -556,11 +544,10 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           onDragOver={handleDrag}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`relative p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center flex flex-col items-center justify-center gap-3 ${
-            dragActive
-              ? 'border-white bg-zinc-800/60 scale-[1.005]'
-              : 'border-zinc-700/80 bg-zinc-950/40 hover:bg-zinc-950/80 hover:border-zinc-500'
-          }`}
+          className={`relative p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center flex flex-col items-center justify-center gap-3 ${dragActive
+            ? 'border-white bg-zinc-800/60 scale-[1.005]'
+            : 'border-zinc-700/80 bg-zinc-950/40 hover:bg-zinc-950/80 hover:border-zinc-500'
+            }`}
         >
           <input
             ref={fileInputRef}
@@ -607,22 +594,20 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           <button
             type="button"
             onClick={() => setFilterTab('all')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              filterTab === 'all'
-                ? 'bg-zinc-800 text-white border border-zinc-700'
-                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-            }`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'all'
+              ? 'bg-zinc-800 text-white border border-zinc-700'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+              }`}
           >
             All Logs ({uploads.length})
           </button>
           <button
             type="button"
             onClick={() => setFilterTab('live')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              filterTab === 'live'
-                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
-                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-            }`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'live'
+              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+              }`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             Live ({liveCount})
@@ -630,11 +615,10 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           <button
             type="button"
             onClick={() => setFilterTab('expired')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              filterTab === 'expired'
-                ? 'bg-zinc-800 text-zinc-300 border border-zinc-700'
-                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-            }`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'expired'
+              ? 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+              }`}
           >
             <Trash2 className="w-3 h-3 text-red-400" />
             Expired ({expiredCount})
@@ -659,11 +643,10 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
             type="button"
             onClick={handleDownloadAllZip}
             disabled={!hasLiveItems || isDownloadingZip}
-            className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-colors shadow ${
-              hasLiveItems && !isDownloadingZip
-                ? 'bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer'
-                : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/60'
-            }`}
+            className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-colors shadow ${hasLiveItems && !isDownloadingZip
+              ? 'bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer'
+              : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/60'
+              }`}
             title="Download all live photos structured in folders inside a single ZIP"
           >
             {isDownloadingZip ? (
@@ -692,17 +675,16 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           {filteredUploads.map((upload) => (
             <div
               key={upload.id}
-              className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${
-                upload.is_live
-                  ? 'bg-zinc-900/90 border-zinc-800 hover:border-zinc-700 shadow-lg'
-                  : upload.status === 'PROCESSING'
+              className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${upload.is_live
+                ? 'bg-zinc-900/90 border-zinc-800 hover:border-zinc-700 shadow-lg'
+                : upload.status === 'PROCESSING'
                   ? 'bg-zinc-900/80 border-blue-900/50 shadow-md'
                   : upload.status === 'ERROR'
-                  ? 'bg-zinc-950/80 border-red-900/60'
-                  : upload.is_expired
-                  ? 'bg-zinc-950/70 border-zinc-850 opacity-80'
-                  : 'bg-zinc-900/60 border-zinc-800'
-              }`}
+                    ? 'bg-zinc-950/80 border-red-900/60'
+                    : upload.is_expired
+                      ? 'bg-zinc-950/70 border-zinc-850 opacity-80'
+                      : 'bg-zinc-900/60 border-zinc-800'
+                }`}
             >
               {/* Left Column: Image preview & Meta */}
               <div className="flex items-center gap-4 min-w-0">
@@ -858,7 +840,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
                     className="inline-flex items-center gap-1 text-xs text-zinc-500 font-mono px-3 py-1.5 rounded bg-zinc-950/60 border border-zinc-850"
                     title="Deleted from Cloudflare R2 after 15 minutes of optimization"
                   >
-                    Purged from R2 & DB
+                    Expired & Purged
                   </span>
                 )}
               </div>
