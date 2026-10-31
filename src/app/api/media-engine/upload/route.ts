@@ -11,9 +11,10 @@ export async function POST(request: NextRequest) {
     }
 
     const includeThumbnail = formData.get('include_thumbnail') || 'false';
+    const fileName = (file as File).name || 'upload.jpg';
 
     const backendFormData = new FormData();
-    backendFormData.append('file', file);
+    backendFormData.append('file', file, fileName);
     backendFormData.append('include_thumbnail', String(includeThumbnail));
 
     try {
