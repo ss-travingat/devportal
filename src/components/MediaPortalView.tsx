@@ -281,7 +281,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
             />
             <div className="w-11 h-6 bg-zinc-800 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-zinc-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-white peer-checked:after:bg-zinc-950"></div>
             <span className="ml-3 text-xs font-medium text-zinc-300">
-              {includeThumbnail ? 'Thumbnails Enabled' : 'Thumbnails Off'}
+              {includeThumbnail ? 'Thumbnails On' : 'Thumbnails Off'}
             </span>
           </label>
         </div>
@@ -293,11 +293,10 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           onDragOver={handleDrag}
           onDrop={handleDrop}
           onClick={() => fileInputRef.current?.click()}
-          className={`relative p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center flex flex-col items-center justify-center gap-3 ${
-            dragActive
-              ? 'border-white bg-zinc-800/60 scale-[1.005]'
-              : 'border-zinc-700/80 bg-zinc-950/40 hover:bg-zinc-950/80 hover:border-zinc-500'
-          }`}
+          className={`relative p-8 border-2 border-dashed rounded-xl cursor-pointer transition-all duration-200 text-center flex flex-col items-center justify-center gap-3 ${dragActive
+            ? 'border-white bg-zinc-800/60 scale-[1.005]'
+            : 'border-zinc-700/80 bg-zinc-950/40 hover:bg-zinc-950/80 hover:border-zinc-500'
+            }`}
         >
           <input
             ref={fileInputRef}
@@ -344,22 +343,20 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           <button
             type="button"
             onClick={() => setFilterTab('all')}
-            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              filterTab === 'all'
-                ? 'bg-zinc-800 text-white border border-zinc-700'
-                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-            }`}
+            className={`px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'all'
+              ? 'bg-zinc-800 text-white border border-zinc-700'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+              }`}
           >
             All Logs ({uploads.length})
           </button>
           <button
             type="button"
             onClick={() => setFilterTab('live')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              filterTab === 'live'
-                ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
-                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-            }`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'live'
+              ? 'bg-emerald-950/80 text-emerald-400 border border-emerald-800/80'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+              }`}
           >
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
             Live ({liveCount})
@@ -367,11 +364,10 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           <button
             type="button"
             onClick={() => setFilterTab('expired')}
-            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${
-              filterTab === 'expired'
-                ? 'bg-zinc-800 text-zinc-300 border border-zinc-700'
-                : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
-            }`}
+            className={`inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-md transition-colors ${filterTab === 'expired'
+              ? 'bg-zinc-800 text-zinc-300 border border-zinc-700'
+              : 'text-zinc-400 hover:text-white bg-zinc-900 border border-zinc-800/80'
+              }`}
           >
             <Trash2 className="w-3 h-3 text-red-400" />
             Expired ({expiredCount})
@@ -396,11 +392,10 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
             type="button"
             onClick={handleDownloadAllZip}
             disabled={liveCount === 0 || isDownloadingZip}
-            className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-colors shadow ${
-              liveCount > 0 && !isDownloadingZip
-                ? 'bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer'
-                : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/60'
-            }`}
+            className={`inline-flex items-center gap-2 px-4 py-1.5 text-xs font-semibold rounded-md transition-colors shadow ${liveCount > 0 && !isDownloadingZip
+              ? 'bg-white hover:bg-zinc-200 text-zinc-950 cursor-pointer'
+              : 'bg-zinc-800 text-zinc-500 cursor-not-allowed border border-zinc-700/60'
+              }`}
           >
             {isDownloadingZip ? (
               <>
@@ -433,13 +428,12 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
           {filteredUploads.map((upload) => (
             <div
               key={upload.id}
-              className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${
-                upload.is_live
-                  ? 'bg-zinc-900/90 border-zinc-800 hover:border-zinc-700 shadow-lg'
-                  : upload.is_expired
+              className={`p-4 rounded-xl border transition-all flex flex-col md:flex-row md:items-center md:justify-between gap-4 ${upload.is_live
+                ? 'bg-zinc-900/90 border-zinc-800 hover:border-zinc-700 shadow-lg'
+                : upload.is_expired
                   ? 'bg-zinc-950/70 border-zinc-850 opacity-80'
                   : 'bg-zinc-900/60 border-zinc-800'
-              }`}
+                }`}
             >
               {/* Left Column: Image preview & Meta */}
               <div className="flex items-center gap-4 min-w-0">
@@ -532,7 +526,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
                       className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-semibold text-zinc-950 bg-white hover:bg-zinc-200 rounded-md transition-colors shadow"
                     >
                       <Download className="w-3.5 h-3.5 stroke-[2.2]" />
-                      <span>Download</span>
+                      <span>Download Image</span>
                     </button>
 
                     {upload.has_thumbnail && (
@@ -543,7 +537,7 @@ export default function MediaPortalView({ initialUploads = [] }: MediaPortalView
                         title="Download 720p thumbnail separately"
                       >
                         <Download className="w-3.5 h-3.5" />
-                        <span>Thumb</span>
+                        <span>Download Thumbnail</span>
                       </button>
                     )}
                   </>
