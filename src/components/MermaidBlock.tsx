@@ -25,11 +25,6 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
   const rawId = useId();
   const mermaidId = `mermaid-${rawId.replace(/:/g, '')}`;
 
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => {
-    setMounted(true);
-  }, []);
-
   // Initialize and render Mermaid SVG
   useEffect(() => {
     let cancelled = false;
@@ -279,7 +274,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
       </div>
 
       {/* Fullscreen Popup Modal */}
-      {isFullscreen && mounted && createPortal(
+      {isFullscreen && typeof document !== 'undefined' && createPortal(
         <div
           className="fixed inset-0 z-[100] bg-zinc-950/98 backdrop-blur-md flex flex-col animate-in fade-in duration-150 select-none"
           onClick={(e) => {
