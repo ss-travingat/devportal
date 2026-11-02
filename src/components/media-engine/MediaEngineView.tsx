@@ -768,6 +768,10 @@ export default function MediaEngineView() {
     onDeleteAsset={async (assetId) => {
       await deleteAssetMutation.mutateAsync(assetId);
     }}
+    onHardDeleteAsset={async (assetId) => {
+      await hardDeleteMutation.mutateAsync(assetId);
+      setIsDrawerOpen(false);
+    }}
     isRetrying={retryJobMutation.isPending}
     isReprocessing={reprocessAssetMutation.isPending}
   />

@@ -32,6 +32,7 @@ interface MediaJobDetailDrawerProps {
   onRetryJob?: (jobId: string) => Promise<void>;
   onReprocessAsset?: (assetId: string) => Promise<void>;
   onDeleteAsset?: (assetId: string) => Promise<void>;
+  onHardDeleteAsset?: (assetId: string) => Promise<void>;
   isRetrying?: boolean;
   isReprocessing?: boolean;
 }
@@ -44,6 +45,7 @@ export default function MediaJobDetailDrawer({
   onRetryJob,
   onReprocessAsset,
   onDeleteAsset,
+  onHardDeleteAsset,
   isRetrying = false,
   isReprocessing = false,
 }: MediaJobDetailDrawerProps) {
@@ -194,12 +196,18 @@ export default function MediaJobDetailDrawer({
               </button>
             )}
 
-            {asset && onDeleteAsset && (
+            {assetId && (onHardDeleteAsset || onDeleteAsset) && (
               <button
                 type="button"
-                onClick={() => onDeleteAsset(asset.id)}
+                onClick={async () => {
+                  if (onHardDeleteAsset) {
+                    await onHardDeleteAsset(assetId);
+                  } else if (onDeleteAsset) {
+                    await onDeleteAsset(assetId);
+                  }
+                }}
                 className="p-1.5 rounded-lg bg-zinc-800 hover:bg-red-500/20 text-zinc-400 hover:text-red-400 border border-zinc-700 hover:border-red-500/40 transition-colors cursor-pointer"
-                title="Move to Recycle Bin"
+                title="Permanently delete asset"
               >
                 <Trash2 className="w-4 h-4" />
               </button>
