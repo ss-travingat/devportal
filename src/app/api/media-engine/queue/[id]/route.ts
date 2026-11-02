@@ -25,3 +25,4 @@ export async function DELETE(
     return NextResponse.json({ error: 'Backend unreachable' }, { status: 503 });
   }
 }
+
