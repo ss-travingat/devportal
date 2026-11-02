@@ -218,3 +218,18 @@ export interface BenchmarkData {
   };
   recent_batches: BenchmarkBatch[];
 }
+
+export interface OrphanFile {
+  key: string;
+  url: string;
+  size: number;
+  lastModified: string;
+}
+
+export interface OrphanScanResult {
+  orphans: OrphanFile[];
+  totalR2: number;
+  totalReferenced: number;
+  totalOrphaned: number;
+  totalOrphanedBytes: number;
+}
