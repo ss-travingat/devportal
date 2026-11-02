@@ -71,6 +71,40 @@ export interface EngineJobLog {
   timestamp: string;
 }
 
+export interface EngineThumbnailVariant {
+  size: number | string;
+  url: string | null;
+  file_size?: number | null;
+  width?: number | null;
+  height?: number | null;
+  quality?: number | null;
+}
+
+export interface EnginePipelineStageOptimization {
+  name: string;
+  format: string;
+  status: string;
+  file_size?: number | null;
+  width?: number | null;
+  height?: number | null;
+  quality?: number | null;
+  url?: string | null;
+  logs: EngineJobLog[];
+}
+
+export interface EnginePipelineStageThumbnails {
+  name: string;
+  status: string;
+  count: number;
+  variants: EngineThumbnailVariant[];
+  logs: EngineJobLog[];
+}
+
+export interface EnginePipelineStages {
+  optimization: EnginePipelineStageOptimization;
+  thumbnails: EnginePipelineStageThumbnails;
+}
+
 export interface EngineJob {
   id: string;
   media_id: string;
@@ -81,6 +115,10 @@ export interface EngineJob {
   duration_seconds?: number | null;
   media_url?: string | null;
   media_quality?: number | null;
+  blurhash?: string | null;
+  dimensions?: string | null;
+  thumbnails?: EngineThumbnailVariant[];
+  stages?: EnginePipelineStages;
   job_type: EngineJobType | string;
   status: EngineJobStatus | string;
   attempts: number;

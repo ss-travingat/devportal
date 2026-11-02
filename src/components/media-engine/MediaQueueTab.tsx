@@ -77,33 +77,25 @@ export function StatusBadge({ status }: { status: string }) {
 
 export function JobTypeBadge({ type }: { type: string }) {
   const t = (type || '').toUpperCase();
-  if (t === 'IMAGE_PROCESSING') {
+  if (t === 'IMAGE_PROCESSING' || t === 'THUMBNAIL_PROCESSING') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-blue-500/10 text-blue-300 border border-blue-500/20">
-        <ImageIcon className="w-3 h-3" />
-        <span>Image</span>
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-blue-500/10 text-blue-300 border border-blue-500/20">
+        <ImageIcon className="w-3.5 h-3.5 text-blue-400" />
+        <span>Image Pipeline</span>
       </span>
     );
   }
   if (t === 'VIDEO_PROCESSING') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-purple-500/10 text-purple-300 border border-purple-500/20">
-        <Video className="w-3 h-3" />
-        <span>Video</span>
-      </span>
-    );
-  }
-  if (t === 'THUMBNAIL_PROCESSING') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-amber-500/10 text-amber-300 border border-amber-500/20">
-        <Layers className="w-3 h-3" />
-        <span>Thumbnails</span>
+      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-semibold bg-purple-500/10 text-purple-300 border border-purple-500/20">
+        <Video className="w-3.5 h-3.5 text-purple-400" />
+        <span>Video Pipeline</span>
       </span>
     );
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
-      <Sparkles className="w-3 h-3" />
+    <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-[11px] font-medium bg-zinc-800 text-zinc-300 border border-zinc-700">
+      <Sparkles className="w-3.5 h-3.5" />
       <span>{type}</span>
     </span>
   );
@@ -151,11 +143,10 @@ export default function MediaQueueTab({
             <button
               key={tab.id}
               onClick={() => onStatusFilterChange(tab.id)}
-              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${
-                statusFilter === tab.id
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-all cursor-pointer ${statusFilter === tab.id
                   ? 'bg-blue-600 text-white shadow-sm shadow-blue-500/30'
                   : 'bg-zinc-800/80 hover:bg-zinc-800 text-zinc-300 hover:text-white border border-zinc-700/60'
-              }`}
+                }`}
             >
               {tab.label}
             </button>
@@ -170,10 +161,9 @@ export default function MediaQueueTab({
               onChange={(e) => onJobTypeFilterChange(e.target.value)}
               className="px-3 py-1.5 bg-zinc-800/90 hover:bg-zinc-800 border border-zinc-700/80 rounded-lg text-xs text-zinc-200 outline-none cursor-pointer pr-7 appearance-none"
             >
-              <option value="">All Job Types</option>
-              <option value="IMAGE_PROCESSING">Image Processing</option>
-              <option value="VIDEO_PROCESSING">Video Processing</option>
-              <option value="THUMBNAIL_PROCESSING">Thumbnail Processing</option>
+              <option value="">All Pipelines</option>
+              <option value="IMAGE_PROCESSING">Image Pipeline (Full + Thumbnails)</option>
+              <option value="VIDEO_PROCESSING">Video Pipeline</option>
             </select>
             <Filter className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
@@ -302,7 +292,18 @@ export default function MediaQueueTab({
 
                       {/* Job Type */}
                       <td className="py-3 px-4">
-                        <JobTypeBadge type={job.job_type} />
+                        <div className="space-y-1">
+                          <JobTypeBadge type={job.job_type} />
+                          <div className="flex items-center gap-1.5 text-[10px] text-zinc-400 font-mono">
+                            <span className="text-emerald-400">● Full Opt</span>
+                            <span>•</span>
+                            <span className="text-amber-400">
+                              {job.thumbnails && job.thumbnails.length > 0
+                                ? `${job.thumbnails.length} Thumbs`
+                                : '● Thumbs'}
+                            </span>
+                          </div>
+                        </div>
                       </td>
 
                       {/* Status */}
@@ -360,18 +361,18 @@ export default function MediaQueueTab({
                           {(job.status === 'FAILURE' ||
                             job.status === 'ERROR' ||
                             job.status === 'RETRYING') && (
-                            <button
-                              type="button"
-                              onClick={() => onRetryJob(job.id)}
-                              disabled={isRetrying}
-                              className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-md border border-zinc-700 transition-colors disabled:opacity-50 cursor-pointer"
-                              title="Retry job"
-                            >
-                              <RotateCcw
-                                className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`}
-                              />
-                            </button>
-                          )}
+                              <button
+                                type="button"
+                                onClick={() => onRetryJob(job.id)}
+                                disabled={isRetrying}
+                                className="p-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white rounded-md border border-zinc-700 transition-colors disabled:opacity-50 cursor-pointer"
+                                title="Retry job"
+                              >
+                                <RotateCcw
+                                  className={`w-3.5 h-3.5 ${isRetrying ? 'animate-spin' : ''}`}
+                                />
+                              </button>
+                            )}
 
                           <button
                             type="button"
@@ -422,4 +423,3 @@ export default function MediaQueueTab({
     </div>
   );
 }
-
