@@ -19,28 +19,28 @@ Travingat operates as a containerized microservice ecosystem hosted on a dedicat
 ```mermaid
 flowchart TD
     User["End Users / Mobile / Web Clients"] -->|HTTPS / 443| CF["Cloudflare Edge (Proxied)\nSSL Termination • DDoS • Caching • WebSockets"]
-    
+
     subgraph Contabo["Contabo Cloud VPS Plus 6 (Host: Linux • 6 vCPUs • 12 GB RAM • 300 GB NVMe)"]
         CF -->|HTTP / 80| Nginx["nginx-proxy Container\n(Automated Virtual Host Routing via docker.sock)"]
-        
+
         subgraph DockerNet["Docker Network: travingat-net"]
             Nginx -->|app.travingat.com:3000| Landing["travingat-landing\n(Next.js 16 App Router)"]
             Nginx -->|admin.travingat.com:3000| Admin["travingat-admin\n(Next.js 16 Dashboard)"]
             Nginx -->|devportal.travingat.com:3000| DevPortal["devportal\n(Next.js 16 Operations)"]
             Nginx -->|api.travingat.com:8000| Backend["travingat-backend\n(Django 4.2 + Daphne ASGI)"]
-            
+
             Backend <-->|Port 5432 / Sub-millisecond| DB[("travingat-db\nPostgreSQL 18 Alpine")]
             Backend <-->|Port 6379 / PubSub & Cache| Redis[("travingat-redis\nRedis 7 Alpine")]
-            
+
             Redis <--> Workers["Celery Worker Cluster\n(images • thumbnails • maintenance • beat)"]
             Workers --> DB
         end
     end
-    
+
     Landing -.->|Internal API: http://travingat-backend:8000| Backend
     Admin -.->|WebSocket: wss://api.travingat.com| Backend
     DevPortal -.->|Devportal Bearer Token| Backend
-    
+
     Backend -->|Presigned URLs & S3 API| R2Media[("Cloudflare R2\ntravingat (Media)")]
     Workers -->|pg_dump -Fc Hourly Snapshots| R2Backups[("Cloudflare R2\ntravingat-db-backups")]
     User -->|Direct Media Streaming| CDN["Cloudflare CDN (cdn.travingat.com)"]
@@ -67,6 +67,7 @@ The Travingat platform is organized into four core production codebases:
 Production runs on a dedicated **Contabo Cloud VPS Plus 6** instance managed with Docker Compose and connected through an external Docker bridge network (`travingat-net`).
 
 ### Host Specifications
+
 - **Operating System:** Ubuntu Linux LTS
 - **CPU:** 6 Dedicated vCPUs
 - **Memory:** 12 GB RAM
@@ -126,6 +127,7 @@ flowchart LR
 ```
 
 ### Key Database Properties
+
 - **Engine:** PostgreSQL 18 Alpine (`postgres:18-alpine`).
 - **Storage Volume:** Docker named volume `postgres_data` mapped to NVMe SSD.
 - **Connection Pooling:** Managed via Django connection persistent pools (`conn_max_age=600`).
@@ -169,6 +171,7 @@ sequenceDiagram
 ```
 
 ### Storage Buckets & Policies
+
 1. **`travingat` (Cloudflare R2):**
    - Stores permanent creator media, profile avatars, headers, and Explorer Cards.
    - Served publicly through `https://cdn.travingat.com` with edge cache headers (`minimumCacheTTL: 31536000`).
@@ -207,6 +210,7 @@ erDiagram
 ```
 
 ### Model Responsibilities
+
 - **`FeaturedProfile`:** Normalized creator portfolio record containing bio, country counts, social links, and cover/avatar image references with Blurhash strings.
 - **`ProfileCountryGroup` & `ProfileCollection`:** Groups creator photos by visited country and curated albums with custom header stacks and blurhashes.
 - **`ExplorerCard`:** User travel passport card state, visited country codes, custom styling variants (*Classic*, *Minimal*, *Adventure*), and export snapshots.
@@ -258,11 +262,13 @@ erDiagram
 ## 8. Production Security, Networking & Observability
 
 ### Edge & SSL Configuration
+
 - **Cloudflare Flexible / Full SSL:** Cloudflare handles public SSL certificates at edge nodes with *Always Use HTTPS* and *Automatic HTTPS Rewrites* enabled.
 - **Port Isolation:** Only host port `80` is open to the external network on the Contabo VPS. The database (5432), Redis (6379), and backend APIs (8000) are private to the internal `travingat-net` bridge network.
 - **WebSocket Pass-Through:** Cloudflare WebSockets are active on `api.travingat.com`, allowing bi-directional streaming from Daphne ASGI to admin clients.
 
 ### Application Hardening
+
 - **Cookie Security:** Cookies are hardened with `SameSite=Strict`, `Secure=True`, and `HttpOnly=True` in production.
 - **CORS Whitelist:** Restricted to explicit production origins:
   - `https://travingat.com`
