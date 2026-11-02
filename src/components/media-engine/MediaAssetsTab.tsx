@@ -2,7 +2,7 @@
 
 import React, { useState } from 'react';
 import { EngineAsset } from '@/types/media';
-import { formatBytes, formatDate } from '@/lib/media-utils';
+import { formatBytes, formatDate, get720pThumbnailUrl } from '@/lib/media-utils';
 import {
   Search,
   Filter,
@@ -39,6 +39,91 @@ interface MediaAssetsTabProps {
   onReprocessAsset: (assetId: string) => Promise<void>;
   reprocessingId: string | null;
   deletingId: string | null;
+}
+
+function MediaGridThumbnail({
+  asset,
+  previewUrl,
+}: {
+  asset: EngineAsset;
+  previewUrl: string | null;
+}) {
+  const [imageError, setImageError] = useState(false);
+  const isVideo = asset.media_type === 'VIDEO';
+
+  if (!previewUrl || imageError) {
+    return (
+      <div className="flex flex-col items-center justify-center gap-1.5 text-zinc-600 select-none p-2 text-center">
+        {isVideo ? (
+          <Video className="w-8 h-8 text-zinc-600" />
+        ) : (
+          <ImageIcon className="w-8 h-8 text-zinc-600" />
+        )}
+        <span className="text-[10px] font-mono text-zinc-500">
+          {!previewUrl ? 'No 720p' : 'Failed to load'}
+        </span>
+      </div>
+    );
+  }
+
+  if (isVideo) {
+    return (
+      <div className="relative w-full h-full flex items-center justify-center">
+        <video
+          src={previewUrl}
+          className="w-full h-full object-cover"
+          muted
+          playsInline
+        />
+        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
+          <Video className="w-8 h-8 text-white/80 drop-shadow" />
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <img
+      src={previewUrl}
+      alt={asset.original?.filename || 'Asset'}
+      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+      loading="lazy"
+      onError={() => setImageError(true)}
+    />
+  );
+}
+
+function MediaTableThumbnail({
+  asset,
+  previewUrl,
+}: {
+  asset: EngineAsset;
+  previewUrl: string | null;
+}) {
+  const [imageError, setImageError] = useState(false);
+  const isVideo = asset.media_type === 'VIDEO';
+
+  if (!previewUrl || imageError) {
+    return isVideo ? (
+      <Video className="w-4 h-4 text-purple-400" />
+    ) : (
+      <ImageIcon className="w-4 h-4 text-zinc-500" />
+    );
+  }
+
+  if (isVideo) {
+    return <Video className="w-4 h-4 text-purple-400" />;
+  }
+
+  return (
+    <img
+      src={previewUrl}
+      alt={asset.original?.filename || 'media'}
+      className="w-full h-full object-cover"
+      loading="lazy"
+      onError={() => setImageError(true)}
+    />
+  );
 }
 
 export default function MediaAssetsTab({
@@ -171,11 +256,7 @@ export default function MediaAssetsTab({
             const isReprocessing = reprocessingId === asset.id;
             const originalSize = asset.original?.size || 0;
             const optimizedSize = asset.optimized?.file_size || null;
-            const previewUrl =
-              asset.optimized?.url ||
-              asset.thumbnails?.[0]?.url ||
-              asset.original?.url;
-            const isVideo = asset.media_type === 'VIDEO';
+            const previewUrl = get720pThumbnailUrl(asset);
             const savings =
               optimizedSize && originalSize > 0 && originalSize > optimizedSize
                 ? Math.round(((originalSize - optimizedSize) / originalSize) * 100)
@@ -189,36 +270,18 @@ export default function MediaAssetsTab({
               >
                 {/* Media Preview Aspect Box */}
                 <div className="relative aspect-square bg-zinc-950 flex items-center justify-center overflow-hidden">
-                  {previewUrl ? (
-                    isVideo ? (
-                      <div className="relative w-full h-full flex items-center justify-center">
-                        <video
-                          src={previewUrl}
-                          className="w-full h-full object-cover"
-                          muted
-                          playsInline
-                        />
-                        <div className="absolute inset-0 bg-black/20 flex items-center justify-center">
-                          <Video className="w-8 h-8 text-white/80 drop-shadow" />
-                        </div>
-                      </div>
-                    ) : (
-                      <img
-                        src={previewUrl}
-                        alt={asset.original?.filename || 'Asset'}
-                        className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
-                        loading="lazy"
-                      />
-                    )
-                  ) : (
-                    <ImageIcon className="w-8 h-8 text-zinc-600" />
-                  )}
+                  <MediaGridThumbnail asset={asset} previewUrl={previewUrl} />
 
                   {/* Top Badges */}
-                  <div className="absolute top-2 left-2 flex items-center gap-1">
+                  <div className="absolute top-2 left-2 flex items-center gap-1 pointer-events-none">
                     <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-black/60 backdrop-blur border border-white/10 text-white">
                       {asset.media_type}
                     </span>
+                    {previewUrl && (
+                      <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-purple-600/90 text-white font-semibold">
+                        720p
+                      </span>
+                    )}
                     {asset.optimized?.quality && (
                       <span className="text-[10px] font-mono px-1.5 py-0.5 rounded bg-blue-500/80 text-white font-semibold">
                         Q:{asset.optimized.quality}
@@ -317,11 +380,7 @@ export default function MediaAssetsTab({
                   const isReprocessing = reprocessingId === asset.id;
                   const originalSize = asset.original?.size || 0;
                   const optimizedSize = asset.optimized?.file_size || null;
-                  const previewUrl =
-                    asset.optimized?.url ||
-                    asset.thumbnails?.[0]?.url ||
-                    asset.original?.url;
-                  const isVideo = asset.media_type === 'VIDEO';
+                  const previewUrl = get720pThumbnailUrl(asset);
 
                   return (
                     <tr
@@ -332,20 +391,7 @@ export default function MediaAssetsTab({
                       <td className="py-3 px-4 max-w-[280px]">
                         <div className="flex items-center gap-3">
                           <div className="w-10 h-10 rounded-lg bg-zinc-800 border border-zinc-700/60 overflow-hidden flex items-center justify-center shrink-0">
-                            {previewUrl ? (
-                              isVideo ? (
-                                <Video className="w-4 h-4 text-purple-400" />
-                              ) : (
-                                <img
-                                  src={previewUrl}
-                                  alt={asset.original?.filename || 'media'}
-                                  className="w-full h-full object-cover"
-                                  loading="lazy"
-                                />
-                              )
-                            ) : (
-                              <ImageIcon className="w-4 h-4 text-zinc-500" />
-                            )}
+                            <MediaTableThumbnail asset={asset} previewUrl={previewUrl} />
                           </div>
                           <div className="min-w-0">
                             <div className="font-semibold text-zinc-200 truncate group-hover:text-blue-300 transition-colors">

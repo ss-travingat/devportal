@@ -2,7 +2,7 @@
 
 import React from 'react';
 import { EngineAsset } from '@/types/media';
-import { formatBytes, formatDate } from '@/lib/media-utils';
+import { formatBytes, formatDate, get720pThumbnailUrl } from '@/lib/media-utils';
 import {
   Trash2,
   RotateCcw,
@@ -106,8 +106,7 @@ export default function MediaRecycleBinTab({
                   const isRestoring = restoringId === item.id;
                   const isHardDeleting = deletingId === item.id;
                   const originalSize = item.original?.size || 0;
-                  const previewUrl =
-                    item.optimized?.url || item.thumbnails?.[0]?.url || item.original?.url;
+                  const previewUrl = get720pThumbnailUrl(item);
 
                   return (
                     <tr
@@ -126,6 +125,9 @@ export default function MediaRecycleBinTab({
                                   alt={item.original?.filename || 'media'}
                                   className="w-full h-full object-cover"
                                   loading="lazy"
+                                  onError={(e) => {
+                                    (e.currentTarget as HTMLElement).style.display = 'none';
+                                  }}
                                 />
                               )
                             ) : (
