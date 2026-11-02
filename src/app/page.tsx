@@ -10,15 +10,30 @@ import {
   Gauge,
   ExternalLink,
   Film,
+  Cpu,
 } from 'lucide-react';
 import { Subscription } from '@/types/subscription';
 import { DocMeta } from '@/types/docs';
+import { EngineStats } from '@/types/media';
 import { loadSubscriptions, saveSubscriptions } from '@/lib/storage';
 
 export default function HomePage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => loadSubscriptions());
   const [docs, setDocs] = useState<DocMeta[]>([]);
   const [liveUploadsCount, setLiveUploadsCount] = useState<number>(0);
+  const [engineStats, setEngineStats] = useState<EngineStats | null>(null);
+
+  // Load engine stats
+  useEffect(() => {
+    fetch('/api/media-engine/stats')
+      .then((res) => res.json())
+      .then((data) => {
+        if (data && typeof data.total_media === 'number') {
+          setEngineStats(data);
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   // Load subscriptions from JSON via API on mount
   useEffect(() => {
@@ -71,6 +86,51 @@ export default function HomePage() {
 
       {/* Cards grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+
+        {/* Card 0: Production Media Engine (Console & Queues) */}
+        <Link
+          href="/media-engine"
+          className="group relative p-6 bg-gradient-to-b from-blue-950/20 to-zinc-900 hover:from-blue-950/30 hover:to-zinc-850 border border-blue-500/30 hover:border-blue-400/50 rounded-lg cursor-pointer transition-all duration-200 shadow-xl flex flex-col justify-between"
+        >
+          <div>
+            <div className="flex items-center justify-between mb-4">
+              <div className="p-2.5 bg-blue-500/15 border border-blue-500/30 rounded-md">
+                <Cpu className="w-5 h-5 text-blue-400" />
+              </div>
+              <div className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-300 font-semibold">
+                  {engineStats ? `${engineStats.total_media} Assets` : 'Online'}
+                </span>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-white group-hover:text-blue-200 transition-colors">
+                Media Engine
+              </h2>
+              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+                Core
+              </span>
+            </div>
+            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
+              Real-time image & video optimization pipeline, Celery background queues, multi-resolution thumbnails, compression benchmarks, and recycle bin management.
+            </p>
+          </div>
+
+          <div className="mt-6 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs">
+            <span className="text-zinc-500">
+              Savings:{' '}
+              <strong className="text-emerald-400 font-mono font-medium">
+                {engineStats ? `${engineStats.savings_pct}%` : 'High Ratio'}
+              </strong>
+            </span>
+            <div className="inline-flex items-center gap-1 font-semibold text-blue-400 group-hover:translate-x-0.5 transition-transform">
+              <span>Open Console</span>
+              <ArrowRight className="w-3.5 h-3.5" />
+            </div>
+          </div>
+        </Link>
 
         {/* Card 1: Media Portal & Optimizer */}
         <Link

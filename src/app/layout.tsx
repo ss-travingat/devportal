@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "@/components/Navbar";
+import Providers from "@/components/Providers";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -37,9 +38,11 @@ export default function RootLayout({
         >
           <Navbar />
         </Suspense>
-        <main className="flex-1 w-full bg-[#121212] flex flex-col">
-          {children}
-        </main>
+        <Providers>
+          <main className="flex-1 w-full bg-[#121212] flex flex-col">
+            {children}
+          </main>
+        </Providers>
       </body>
     </html>
   );
