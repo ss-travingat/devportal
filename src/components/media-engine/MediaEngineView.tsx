@@ -72,6 +72,7 @@ export default function MediaEngineView() {
 
   // Action loading states
   const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
+  const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [reprocessingId, setReprocessingId] = useState<string | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [restoringId, setRestoringId] = useState<string | null>(null);
@@ -261,6 +262,52 @@ export default function MediaEngineView() {
           showFeedback(
             'success',
             `Reconciliation complete: ${data.reconciled_success || 0} resolved to success, ${data.marked_failed || 0} timed out.`
+          );
+          queryClient.invalidateQueries({ queryKey: ['media-engine'] });
+        },
+        onError: (err: Error) => {
+          showFeedback('error', err.message);
+        },
+      });
+
+      // Delete single job from queue
+      const deleteJobMutation = useMutation({
+        mutationFn: async (jobId: string) => {
+          setDeletingJobId(jobId);
+          const res = await fetch(`/api/media-engine/queue/${jobId}`, {
+            method: 'DELETE',
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Failed to delete job');
+          return data;
+        },
+        onSuccess: () => {
+          showFeedback('success', 'Job deleted from queue.');
+          queryClient.invalidateQueries({ queryKey: ['media-engine'] });
+          if (selectedJob && selectedJob.id === deletingJobId) {
+            setIsDrawerOpen(false);
+          }
+        },
+        onError: (err: Error) => {
+          showFeedback('error', err.message);
+        },
+        onSettled: () => setDeletingJobId(null),
+      });
+
+      // Purge all failed jobs & 404 test artifacts
+      const purgeFailedMutation = useMutation({
+        mutationFn: async () => {
+          const res = await fetch('/api/media-engine/queue/purge-failed', {
+            method: 'POST',
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Failed to purge failed jobs');
+          return data;
+        },
+        onSuccess: (data) => {
+          showFeedback(
+            'success',
+            `Purged ${data.jobs_purged || 0} failed jobs and ${data.assets_purged || 0} orphaned test assets.`
           );
           queryClient.invalidateQueries({ queryKey: ['media-engine'] });
         },
@@ -676,6 +723,14 @@ export default function MediaEngineView() {
           await reconcileStaleMutation.mutateAsync();
         }}
         isReconcilingStale={reconcileStaleMutation.isPending}
+        onPurgeFailed={async () => {
+          await purgeFailedMutation.mutateAsync();
+        }}
+        isPurgingFailed={purgeFailedMutation.isPending}
+        onDeleteJob={async (jobId) => {
+          await deleteJobMutation.mutateAsync(jobId);
+        }}
+        deletingJobId={deletingJobId}
         onSelectJob={handleSelectJob}
         isRetryingAll={retryAllMutation.isPending}
         retryingJobId={retryingJobId}

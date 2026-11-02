@@ -17,6 +17,7 @@ import {
   Video,
   Layers,
   Sparkles,
+  Trash2,
 } from 'lucide-react';
 
 interface MediaQueueTabProps {
@@ -36,6 +37,10 @@ interface MediaQueueTabProps {
   onRetryAll: () => Promise<void>;
   onReconcileStale?: () => Promise<void>;
   isReconcilingStale?: boolean;
+  onPurgeFailed?: () => Promise<void>;
+  isPurgingFailed?: boolean;
+  onDeleteJob?: (jobId: string) => Promise<void>;
+  deletingJobId?: string | null;
   onSelectJob: (job: EngineJob) => void;
   isRetryingAll: boolean;
   retryingJobId: string | null;
@@ -118,6 +123,10 @@ export default function MediaQueueTab({
   onRetryAll,
   onReconcileStale,
   isReconcilingStale,
+  onPurgeFailed,
+  isPurgingFailed,
+  onDeleteJob,
+  deletingJobId,
   onSelectJob,
   isRetryingAll,
   retryingJobId,
@@ -187,6 +196,18 @@ export default function MediaQueueTab({
             >
               <RotateCcw className={`w-3.5 h-3.5 ${isRetryingAll ? 'animate-spin' : ''}`} />
               <span>{isRetryingAll ? 'Retrying All...' : 'Retry All Failed'}</span>
+            </button>
+          )}
+
+          {hasFailedJobs && onPurgeFailed && (
+            <button
+              onClick={onPurgeFailed}
+              disabled={isPurgingFailed}
+              title="Purge all failed test/404 jobs and orphaned records permanently"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-rose-600/20 hover:bg-rose-600/30 border border-rose-500/40 text-rose-300 hover:text-white rounded-lg text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+            >
+              <Trash2 className={`w-3.5 h-3.5 ${isPurgingFailed ? 'animate-pulse' : ''}`} />
+              <span>{isPurgingFailed ? 'Purging...' : 'Purge Failed (404) Jobs'}</span>
             </button>
           )}
 
@@ -382,6 +403,25 @@ export default function MediaQueueTab({
                             <FileCode className="w-3.5 h-3.5 text-zinc-400" />
                             <span>Logs</span>
                           </button>
+
+                          {onDeleteJob && (
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                if (confirm(`Delete job ${job.id.slice(0, 8)}... from queue?`)) {
+                                  onDeleteJob(job.id);
+                                }
+                              }}
+                              disabled={deletingJobId === job.id}
+                              className="p-1.5 bg-zinc-800 hover:bg-rose-950/60 text-zinc-400 hover:text-rose-400 rounded-md border border-zinc-700 hover:border-rose-500/40 transition-colors disabled:opacity-50 cursor-pointer"
+                              title="Delete job from queue"
+                            >
+                              <Trash2
+                                className={`w-3.5 h-3.5 ${deletingJobId === job.id ? 'animate-pulse text-rose-500' : ''}`}
+                              />
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
