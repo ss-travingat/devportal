@@ -1,10 +1,41 @@
+import { cookies } from 'next/headers';
+
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
 const DEVPORTAL_TOKEN = process.env.DEVPORTAL_API_TOKEN || 'travingat-devportal-dev-token';
 
 export async function backendFetch(path: string, options: RequestInit = {}): Promise<Response> {
-  const url = `${BACKEND_URL}${path.startsWith('/') ? path : `/${path}`}`;
+  let normalizedPath = path.startsWith('/') ? path : `/${path}`;
+
+  // Ensure trailing slash for router root /api/media to avoid 301 redirects
+  if (normalizedPath === '/api/media' || normalizedPath.startsWith('/api/media?')) {
+    normalizedPath = normalizedPath.replace('/api/media', '/api/media/');
+  }
+
+  const url = `${BACKEND_URL}${normalizedPath}`;
   const headers = new Headers(options.headers || {});
-  
+
+
+  // Try to forward session cookies from the incoming browser request
+  let hasSessionCookie = false;
+  try {
+    const cookieStore = await cookies();
+    const adminSession = cookieStore.get('admin_session')?.value;
+    const cmsSession = cookieStore.get('cms_session')?.value;
+    const cookieParts: string[] = [];
+    if (adminSession) cookieParts.push(`admin_session=${adminSession}`);
+    if (cmsSession) cookieParts.push(`cms_session=${cmsSession}`);
+
+    if (cookieParts.length > 0) {
+      hasSessionCookie = true;
+      if (!headers.has('Cookie')) {
+        headers.set('Cookie', cookieParts.join('; '));
+      }
+    }
+  } catch {
+    // cookies() unavailable outside request context (e.g. build time)
+  }
+
+  // Always supply Authorization Bearer token for devportal internal endpoints or when no session cookie exists
   if (!headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${DEVPORTAL_TOKEN}`);
   }
@@ -14,4 +45,3 @@ export async function backendFetch(path: string, options: RequestInit = {}): Pro
     headers,
   });
 }
-
