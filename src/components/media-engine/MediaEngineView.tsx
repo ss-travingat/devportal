@@ -247,6 +247,28 @@ export default function MediaEngineView() {
         },
       });
 
+      // Reconcile stuck processing jobs
+      const reconcileStaleMutation = useMutation({
+        mutationFn: async () => {
+          const res = await fetch('/api/media-engine/queue/reconcile-stale', {
+            method: 'POST',
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.error || 'Failed to reconcile stuck jobs');
+          return data;
+        },
+        onSuccess: (data) => {
+          showFeedback(
+            'success',
+            `Reconciliation complete: ${data.reconciled_success || 0} resolved to success, ${data.marked_failed || 0} timed out.`
+          );
+          queryClient.invalidateQueries({ queryKey: ['media-engine'] });
+        },
+        onError: (err: Error) => {
+          showFeedback('error', err.message);
+        },
+      });
+
       // Reprocess asset
       const reprocessAssetMutation = useMutation({
         mutationFn: async (assetId: string) => {
@@ -650,6 +672,10 @@ export default function MediaEngineView() {
         onRetryAll={async () => {
           await retryAllMutation.mutateAsync();
         }}
+        onReconcileStale={async () => {
+          await reconcileStaleMutation.mutateAsync();
+        }}
+        isReconcilingStale={reconcileStaleMutation.isPending}
         onSelectJob={handleSelectJob}
         isRetryingAll={retryAllMutation.isPending}
         retryingJobId={retryingJobId}

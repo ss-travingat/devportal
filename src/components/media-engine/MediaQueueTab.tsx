@@ -34,6 +34,8 @@ interface MediaQueueTabProps {
   onSearchChange: (query: string) => void;
   onRetryJob: (jobId: string) => Promise<void>;
   onRetryAll: () => Promise<void>;
+  onReconcileStale?: () => Promise<void>;
+  isReconcilingStale?: boolean;
   onSelectJob: (job: EngineJob) => void;
   isRetryingAll: boolean;
   retryingJobId: string | null;
@@ -122,6 +124,8 @@ export default function MediaQueueTab({
   onSearchChange,
   onRetryJob,
   onRetryAll,
+  onReconcileStale,
+  isReconcilingStale,
   onSelectJob,
   isRetryingAll,
   retryingJobId,
@@ -193,6 +197,18 @@ export default function MediaQueueTab({
             >
               <RotateCcw className={`w-3.5 h-3.5 ${isRetryingAll ? 'animate-spin' : ''}`} />
               <span>{isRetryingAll ? 'Retrying All...' : 'Retry All Failed'}</span>
+            </button>
+          )}
+
+          {onReconcileStale && (
+            <button
+              onClick={onReconcileStale}
+              disabled={isReconcilingStale}
+              title="Auto-reconciles jobs stuck in processing that already completed or timed out"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-amber-500/15 hover:bg-amber-500/25 border border-amber-500/30 text-amber-300 hover:text-amber-200 rounded-lg text-xs font-semibold transition-all cursor-pointer disabled:opacity-50"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isReconcilingStale ? 'animate-spin' : ''}`} />
+              <span>{isReconcilingStale ? 'Reconciling...' : 'Reconcile Stuck Jobs'}</span>
             </button>
           )}
         </div>
