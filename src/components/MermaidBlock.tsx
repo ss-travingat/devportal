@@ -12,6 +12,7 @@ interface ToolbarProps {
   inFullscreen?: boolean;
   isCopying: boolean;
   copied: boolean;
+  feedbackText: string;
   isFullscreen: boolean;
   onZoomIn: (e?: React.MouseEvent) => void;
   onZoomOut: (e?: React.MouseEvent) => void;
@@ -24,6 +25,7 @@ function DiagramToolbar({
   inFullscreen = false,
   isCopying,
   copied,
+  feedbackText,
   isFullscreen,
   onZoomIn,
   onZoomOut,
@@ -66,12 +68,14 @@ function DiagramToolbar({
         type="button"
         onClick={onCopyAsImage}
         disabled={isCopying}
-        title={copied ? 'Copied image to clipboard!' : 'Copy diagram as PNG image'}
+        title={copied ? feedbackText || 'Copied image!' : 'Copy diagram as PNG image'}
         aria-label="Copy diagram as image"
         className="p-1.5 hover:bg-zinc-800 hover:text-white rounded transition-colors cursor-pointer relative"
       >
         {copied ? (
           <Check className="w-4 h-4 text-emerald-400" />
+        ) : isCopying ? (
+          <span className="w-4 h-4 inline-block border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
         ) : (
           <Copy className="w-4 h-4" />
         )}
@@ -95,6 +99,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
   const [error, setError] = useState<string>('');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [feedbackText, setFeedbackText] = useState('');
   const [isCopying, setIsCopying] = useState(false);
 
   // Zoom and Pan state
@@ -257,103 +262,174 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
   // Copy diagram as high-resolution PNG image to clipboard
   const handleCopyAsImage = async (e?: React.MouseEvent) => {
     e?.stopPropagation();
-    if (!svg || isCopying) return;
+    if (isCopying) return;
 
     try {
       setIsCopying(true);
 
-      // Find rendered SVG element
       const activeEl = isFullscreen ? modalCanvasRef.current : inlineContainerRef.current;
       const svgEl = activeEl?.querySelector('svg');
+      if (!svgEl) {
+        throw new Error('Diagram SVG element not found in DOM');
+      }
 
+      // 1. Determine natural width and height from viewBox or bounding box
       let width = 1200;
       let height = 800;
 
-      if (svgEl) {
-        const viewBox = svgEl.getAttribute('viewBox');
-        if (viewBox) {
-          const parts = viewBox.split(/[\s,]+/).map(Number);
-          if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
-            width = parts[2];
-            height = parts[3];
-          }
-        } else {
-          const bbox = svgEl.getBoundingClientRect();
-          if (bbox.width > 0 && bbox.height > 0) {
-            width = Math.round(bbox.width);
-            height = Math.round(bbox.height);
-          }
+      const viewBox = svgEl.getAttribute('viewBox');
+      if (viewBox) {
+        const parts = viewBox.split(/[\s,]+/).map(Number);
+        if (parts.length === 4 && parts[2] > 0 && parts[3] > 0) {
+          width = parts[2];
+          height = parts[3];
+        }
+      } else {
+        const bbox = svgEl.getBoundingClientRect();
+        if (bbox.width > 0 && bbox.height > 0) {
+          width = Math.round(bbox.width);
+          height = Math.round(bbox.height);
         }
       }
 
-      // Prepare SVG string with explicit dimensions and XML namespace
-      let svgMarkup = svg;
-      if (!svgMarkup.includes('xmlns="http://www.w3.org/2000/svg"')) {
-        svgMarkup = svgMarkup.replace('<svg', '<svg xmlns="http://www.w3.org/2000/svg"');
-      }
+      // 2. Clone the live SVG and sanitize
+      const clone = svgEl.cloneNode(true) as SVGSVGElement;
+      clone.setAttribute('width', `${width}`);
+      clone.setAttribute('height', `${height}`);
+      clone.setAttribute('xmlns', 'http://www.w3.org/2000/svg');
+      clone.setAttribute('xmlns:xlink', 'http://www.w3.org/1999/xlink');
 
-      svgMarkup = svgMarkup.replace(/<svg\b([^>]*)>/i, (match, attrs) => {
-        const clean = attrs
-          .replace(/\bwidth="[^"]*"/gi, '')
-          .replace(/\bheight="[^"]*"/gi, '');
-        return `<svg${clean} width="${width}" height="${height}">`;
+      // CRITICAL: Replace any <foreignObject> with native SVG <text> elements to prevent canvas tainting in Chrome & Safari
+      const foreignObjects = Array.from(clone.querySelectorAll('foreignObject'));
+      foreignObjects.forEach((fo) => {
+        const text = fo.textContent?.trim() || '';
+        const x = parseFloat(fo.getAttribute('x') || '0');
+        const y = parseFloat(fo.getAttribute('y') || '0');
+        const w = parseFloat(fo.getAttribute('width') || '100');
+        const h = parseFloat(fo.getAttribute('height') || '30');
+
+        const textEl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        textEl.setAttribute('x', `${x + w / 2}`);
+        textEl.setAttribute('y', `${y + h / 2}`);
+        textEl.setAttribute('text-anchor', 'middle');
+        textEl.setAttribute('dominant-baseline', 'central');
+        textEl.setAttribute('fill', '#f4f4f5');
+        textEl.setAttribute('font-family', 'ui-sans-serif, system-ui, sans-serif');
+        textEl.setAttribute('font-size', '12px');
+        textEl.textContent = text;
+
+        fo.parentNode?.replaceChild(textEl, fo);
       });
 
-      // Load into an HTML Image element via Blob URL
-      const svgBlob = new Blob([svgMarkup], { type: 'image/svg+xml;charset=utf-8' });
-      const blobUrl = URL.createObjectURL(svgBlob);
-      const img = new Image();
+      // 3. Serialize to XML string
+      const serializer = new XMLSerializer();
+      const svgXml = serializer.serializeToString(clone);
 
+      // 4. Encode as safe data URI
+      const dataUri = `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svgXml)}`;
+
+      // 5. Load into Image element
+      const img = new Image();
       await new Promise<void>((resolve, reject) => {
         img.onload = () => resolve();
-        img.onerror = (err) => reject(err);
-        img.src = blobUrl;
+        img.onerror = (err) => reject(new Error('Failed to load SVG into Image element: ' + String(err)));
+        img.src = dataUri;
       });
 
-      // Render onto high-DPI canvas (2x) with dark background padding
+      // 6. Draw onto Canvas with 2x High-DPI and dark background
       const dpr = 2;
-      const padding = 32 * dpr;
+      const padding = 28 * dpr;
       const canvas = document.createElement('canvas');
-      canvas.width = width * dpr + padding * 2;
-      canvas.height = height * dpr + padding * 2;
+      canvas.width = Math.round(width * dpr + padding * 2);
+      canvas.height = Math.round(height * dpr + padding * 2);
 
       const ctx = canvas.getContext('2d');
-      if (!ctx) throw new Error('Could not get canvas context');
+      if (!ctx) throw new Error('Could not get 2D canvas context');
 
-      // Crisp background matching portal dark palette
+      // Fill crisp dark background
       ctx.fillStyle = '#09090b';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
 
       // Draw SVG centered
       ctx.drawImage(img, padding, padding, width * dpr, height * dpr);
-      URL.revokeObjectURL(blobUrl);
 
-      // Export as PNG blob
+      // 7. Export as PNG blob
       const pngBlob = await new Promise<Blob | null>((resolve) => {
         canvas.toBlob(resolve, 'image/png');
       });
 
-      if (!pngBlob) throw new Error('Canvas to PNG blob conversion failed');
+      if (!pngBlob) throw new Error('Failed to export canvas to PNG blob');
 
-      // Write directly to clipboard
-      if (typeof navigator !== 'undefined' && navigator.clipboard && window.ClipboardItem) {
-        await navigator.clipboard.write([
-          new ClipboardItem({ 'image/png': pngBlob }),
-        ]);
-      } else {
-        // Fallback: trigger direct PNG download
-        const downloadUrl = URL.createObjectURL(pngBlob);
-        const a = document.createElement('a');
-        a.href = downloadUrl;
-        a.download = 'diagram.png';
-        a.click();
-        URL.revokeObjectURL(downloadUrl);
+      // 8. Copy to clipboard or trigger fallback download
+      let copiedSuccess = false;
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.write && typeof ClipboardItem !== 'undefined') {
+        try {
+          await navigator.clipboard.write([
+            new ClipboardItem({ 'image/png': pngBlob }),
+          ]);
+          copiedSuccess = true;
+        } catch (clipErr) {
+          console.warn('Standard ClipboardItem with Blob failed, trying Promise...', clipErr);
+          try {
+            await navigator.clipboard.write([
+              new ClipboardItem({ 'image/png': Promise.resolve(pngBlob) }),
+            ]);
+            copiedSuccess = true;
+          } catch (clipErr2) {
+            console.warn('Clipboard write rejected:', clipErr2);
+          }
+        }
       }
 
+      if (copiedSuccess) {
+        setFeedbackText('Copied image to clipboard!');
+        setCopied(true);
+      } else {
+        // Fallback: download PNG image directly if clipboard permission is denied or unsupported
+        const dlUrl = URL.createObjectURL(pngBlob);
+        const a = document.createElement('a');
+        a.href = dlUrl;
+        a.download = `diagram-${rawId.replace(/:/g, '') || 'export'}.png`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(dlUrl);
+
+        setFeedbackText('Downloaded PNG image!');
+        setCopied(true);
+      }
+
+      setTimeout(() => {
+        setCopied(false);
+        setFeedbackText('');
+      }, 3000);
+    } catch (err: unknown) {
+      console.error('Copy as image failed, attempting text fallback:', err);
+      // Fallback: If canvas export threw error, copy outer SVG markup to clipboard
+      if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        try {
+          const activeEl = isFullscreen ? modalCanvasRef.current : inlineContainerRef.current;
+          const svgEl = activeEl?.querySelector('svg');
+          if (svgEl) {
+            await navigator.clipboard.writeText(svgEl.outerHTML);
+            setFeedbackText('Copied SVG to clipboard!');
+            setCopied(true);
+            setTimeout(() => {
+              setCopied(false);
+              setFeedbackText('');
+            }, 3000);
+            return;
+          }
+        } catch {
+          // ignore
+        }
+      }
+      setFeedbackText('Export failed');
       setCopied(true);
-      setTimeout(() => setCopied(false), 2500);
-    } catch (err) {
-      console.error('Failed to copy diagram as image:', err);
+      setTimeout(() => {
+        setCopied(false);
+        setFeedbackText('');
+      }, 3000);
     } finally {
       setIsCopying(false);
     }
@@ -393,7 +469,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
           {copied && (
             <span className="font-sans text-[11px] text-emerald-400 bg-emerald-950/80 border border-emerald-800/80 px-2 py-0.5 rounded shadow-sm flex items-center gap-1 animate-in fade-in">
               <Check className="w-3 h-3" />
-              Copied image to clipboard!
+              {feedbackText}
             </span>
           )}
         </div>
@@ -403,6 +479,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
           inFullscreen={false}
           isCopying={isCopying}
           copied={copied}
+          feedbackText={feedbackText}
           isFullscreen={isFullscreen}
           onZoomIn={handleZoomIn}
           onZoomOut={handleZoomOut}
@@ -459,7 +536,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
               {copied && (
                 <span className="font-sans text-xs text-emerald-400 bg-emerald-950/80 border border-emerald-800/80 px-2 py-0.5 rounded flex items-center gap-1 animate-in fade-in">
                   <Check className="w-3.5 h-3.5" />
-                  Copied image to clipboard!
+                  {feedbackText}
                 </span>
               )}
             </div>
@@ -497,12 +574,14 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
                   type="button"
                   onClick={handleCopyAsImage}
                   disabled={isCopying}
-                  title={copied ? 'Copied image to clipboard!' : 'Copy diagram as PNG image'}
+                  title={copied ? feedbackText || 'Copied image!' : 'Copy diagram as PNG image'}
                   aria-label="Copy diagram as image"
-                  className="p-1.5 hover:bg-zinc-800 hover:text-white rounded transition-colors cursor-pointer"
+                  className="p-1.5 hover:bg-zinc-800 hover:text-white rounded transition-colors cursor-pointer relative"
                 >
                   {copied ? (
                     <Check className="w-4 h-4 text-emerald-400" />
+                  ) : isCopying ? (
+                    <span className="w-4 h-4 inline-block border-2 border-zinc-400 border-t-transparent rounded-full animate-spin" />
                   ) : (
                     <Copy className="w-4 h-4" />
                   )}
