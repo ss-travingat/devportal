@@ -1,84 +1,12 @@
 'use client';
 
-import React, { useEffect, useRef, useState, useId } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import MermaidBlock from '@/components/MermaidBlock';
 
 interface MarkdownViewerProps {
   content: string;
-}
-
-// Mermaid block renderer: renders a Mermaid diagram from a code block with lang="mermaid"
-function MermaidBlock({ code }: { code: string }) {
-  const ref = useRef<HTMLDivElement>(null);
-  const [svg, setSvg] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const rawId = useId();
-  const mermaidId = `mermaid-${rawId.replace(/:/g, '')}`;
-
-  useEffect(() => {
-    let cancelled = false;
-    async function render() {
-      try {
-        const mermaid = (await import('mermaid')).default;
-        mermaid.initialize({
-          startOnLoad: false,
-          theme: 'dark',
-          darkMode: true,
-          themeVariables: {
-            primaryColor: '#27272a',
-            primaryTextColor: '#f4f4f5',
-            primaryBorderColor: '#52525b',
-            lineColor: '#71717a',
-            secondaryColor: '#18181b',
-            tertiaryColor: '#1c1c1f',
-            background: '#18181b',
-            mainBkg: '#27272a',
-            nodeBorder: '#52525b',
-            clusterBkg: '#1c1c1f',
-            titleColor: '#f4f4f5',
-            edgeLabelBackground: '#1c1c1f',
-            fontFamily: 'ui-sans-serif, system-ui, sans-serif',
-          },
-        });
-        const { svg: rendered } = await mermaid.render(mermaidId, code);
-        if (!cancelled) setSvg(rendered);
-      } catch (err) {
-        if (!cancelled) setError(String(err));
-      }
-    }
-    render();
-    return () => { cancelled = true; };
-  }, [code, mermaidId]);
-
-  if (error) {
-    return (
-      <div className="my-4 px-4 py-3 border border-zinc-800 rounded-md bg-zinc-950 text-xs text-zinc-400 font-mono overflow-auto">
-        <p className="text-zinc-300 mb-1 font-medium">Mermaid render error:</p>
-        <pre className="whitespace-pre-wrap">{error}</pre>
-        <p className="text-zinc-500 mt-2 text-[11px]">Source:</p>
-        <pre className="whitespace-pre-wrap text-zinc-500">{code}</pre>
-      </div>
-    );
-  }
-
-  if (!svg) {
-    return (
-      <div className="my-4 px-4 py-4 border border-zinc-800 rounded-md bg-zinc-950 flex items-center gap-2 text-xs text-zinc-500">
-        <span className="animate-pulse">◌</span>
-        <span>Rendering diagram...</span>
-      </div>
-    );
-  }
-
-  return (
-    <div
-      ref={ref}
-      className="my-6 p-4 border border-zinc-800 rounded-lg bg-zinc-950 overflow-x-auto flex justify-center"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
-  );
 }
 
 export default function MarkdownViewer({ content }: MarkdownViewerProps) {
