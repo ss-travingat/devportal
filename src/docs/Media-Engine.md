@@ -71,8 +71,8 @@ erDiagram
         fk user
         string original_filename
         string original_content_type
-        string media_type "IMAGE | VIDEO"
-        string status "UPLOADING | PROCESSING | DONE | ERROR"
+        string media_type "IMAGE / VIDEO"
+        string status "UPLOADING / PROCESSING / DONE / ERROR"
         string upload_batch_id
         int original_size
         int original_width
@@ -87,7 +87,7 @@ erDiagram
     MediaVariant {
         uuid id
         fk media
-        string variant_type "OPTIMIZED | THUMBNAIL_720"
+        string variant_type "OPTIMIZED / THUMBNAIL_720"
         string storage_path
         string content_type
         int width
@@ -99,8 +99,8 @@ erDiagram
     MediaJob {
         uuid id
         fk media
-        string job_type "IMAGE_PROCESSING | VIDEO_PROCESSING | THUMBNAIL_PROCESSING | RAW_CLEANUP"
-        string status "PENDING | PROCESSING | SUCCESS | FAILURE | RETRYING"
+        string job_type "IMAGE_PROCESSING / VIDEO_PROCESSING / THUMBNAIL_PROCESSING / RAW_CLEANUP"
+        string status "PENDING / PROCESSING / SUCCESS / FAILURE / RETRYING"
         int attempts
         string error_message
     }
