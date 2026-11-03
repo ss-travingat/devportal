@@ -3,7 +3,14 @@
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 import rehypeRaw from 'rehype-raw';
+import rehypeSanitize from 'rehype-sanitize';
 import MermaidBlock from '@/components/MermaidBlock';
+
+// rehype-raw lets authors embed arbitrary raw HTML/SVG in markdown source;
+// without sanitizing afterwards that includes <script>, event-handler
+// attributes, and SVG-borne script execution. The default (GitHub-style)
+// schema already allows everything this viewer's `code` component needs
+// (className, for syntax-highlighting/mermaid language detection).
 
 interface MarkdownViewerProps {
   content: string;
@@ -14,7 +21,7 @@ export default function MarkdownViewer({ content }: MarkdownViewerProps) {
     <div className="prose prose-invert max-w-none text-zinc-200 leading-relaxed">
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
-        rehypePlugins={[rehypeRaw]}
+        rehypePlugins={[rehypeRaw, rehypeSanitize]}
         components={{
           // Code block — route mermaid to MermaidBlock
           code({ className, children }) {
