@@ -1,7 +1,7 @@
 import { cookies } from 'next/headers';
 
 const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
-const DEVPORTAL_TOKEN = process.env.DEVPORTAL_API_TOKEN || 'travingat-devportal-dev-token';
+const DEVPORTAL_TOKEN = process.env.DEVPORTAL_API_TOKEN || '';
 
 export async function backendFetch(path: string, options: RequestInit = {}): Promise<Response> {
   let normalizedPath = path.startsWith('/') ? path : `/${path}`;
@@ -36,7 +36,7 @@ export async function backendFetch(path: string, options: RequestInit = {}): Pro
   }
 
   // Always supply Authorization Bearer token for devportal internal endpoints or when no session cookie exists
-  if (!headers.has('Authorization')) {
+  if (!headers.has('Authorization') && DEVPORTAL_TOKEN) {
     headers.set('Authorization', `Bearer ${DEVPORTAL_TOKEN}`);
   }
 
