@@ -68,7 +68,7 @@ erDiagram
 
     MediaAsset {
         uuid id
-        fk user
+        ref user
         string original_filename
         string original_content_type
         string media_type "IMAGE / VIDEO"
@@ -86,7 +86,7 @@ erDiagram
     }
     MediaVariant {
         uuid id
-        fk media
+        ref media
         string variant_type "OPTIMIZED / THUMBNAIL_720"
         string storage_path
         string content_type
@@ -98,14 +98,14 @@ erDiagram
     }
     MediaJob {
         uuid id
-        fk media
+        ref media
         string job_type "IMAGE_PROCESSING / VIDEO_PROCESSING / THUMBNAIL_PROCESSING / RAW_CLEANUP"
         string status "PENDING / PROCESSING / SUCCESS / FAILURE / RETRYING"
         int attempts
         string error_message
     }
     JobLog {
-        fk job
+        ref job
         string stage
         string message
         datetime timestamp
