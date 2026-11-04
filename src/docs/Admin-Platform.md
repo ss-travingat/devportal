@@ -3,12 +3,12 @@ title: Admin Platform — Operations Dashboard
 description: The internal backoffice dashboard Travingat staff use to review creator applications, manage the waitlist, moderate content, and recover records — architecture, workflows, and the team's day-to-day tools.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-03
+updatedAt: 2026-11-04
 ---
 
 # Admin Platform — Operations Dashboard
 
-`travingat-admin` (`admin.travingat.com`) is the backoffice dashboard the Travingat team uses to run the platform day to day: reviewing and approving creator profiles, managing the waitlist, approving Get Featured applications, moderating blog and testimonial content, and recovering accidentally deleted records.
+`travingat-admin` (`admin.travingat.com`) is the backoffice dashboard the Travingat team uses to run the platform day to day: reviewing and approving creator profiles, managing the waitlist, approving Get Featured applications, and recovering accidentally deleted records.
 
 ```mermaid
 flowchart TD
@@ -28,7 +28,6 @@ flowchart TD
 | **Featured Requests** | Approving or re-inviting creators who applied for Get Featured, triggering the email that unlocks their profile builder |
 | **Profile Editor** | A full step-by-step profile builder the team can use directly, for creating or editing any creator's profile on their behalf |
 | **Waitlist & Users** | Full visibility into early-access signups and registered users, with signup context (device, browser, region) |
-| **Blog & Testimonials** | Content moderation and publishing for marketing-facing content |
 | **Recycle Bin** | Recovery of soft-deleted records within a 30-day retention window, with full restore or permanent purge |
 
 ---
