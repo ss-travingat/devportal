@@ -78,7 +78,7 @@ flowchart TD
 | `travingat-celery-maintenance` | Worker for the `maintenance` queue | none set |
 | `travingat-celery-beat` | Schedules the periodic jobs | none set |
 | `nginx-proxy` | Routes `*.travingat.com` to containers by `VIRTUAL_HOST`; the only public port (80) | none set |
-| `travingat-landing`, `travingat-admin` | Next.js apps (port 3000) | set in their own deploy configs |
+| `travingat-landing`, `travingat-admin` | Next.js apps (port 3000), from each repo's own `docker-compose.prod.yml` | 1 CPU, 1536 MB each |
 
 There is no worker for the `videos` queue in production. That is fine while video upload is disabled in the product, but a `videos` worker must be added before video is switched on.
 
@@ -100,6 +100,7 @@ flowchart LR
 
 - **Hourly backup:** `core.celery.backup_db_to_r2_task` runs `pg_dump -Fc` and uploads it to the `travingat-db-backups` R2 bucket. It retries 3 times on failure.
 - **Retention:** hourly snapshots are kept for 24 hours, and one snapshot per day is promoted and kept for 30 days.
+- **Not encrypted:** the files are plain `pg_dump` archives, protected by the bucket being private. Restoring one is covered in the [Runbook](/tech-docs/Runbook).
 - **Before risky changes:** take a manual dump on the VPS as well:
   ```bash
   docker exec travingat-db pg_dump -U travingat_user -Fc travingat_prod > ~/backups/<name>.dump

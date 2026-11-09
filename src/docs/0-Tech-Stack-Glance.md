@@ -8,7 +8,7 @@ updatedAt: 2026-11-09
 
 # Tech Stack at a Glance
 
-This page answers "what does Travingat run on, and why?" in one place. For the detail behind each row, see [Architecture](/tech-docs/Techstack), [Data Model](/tech-docs/Data-Model), [Media Engine](/tech-docs/Media-Engine), [Get Featured](/tech-docs/Get-Featured), [Explorer Cards](/tech-docs/Explorer-Cards), [Waitlist](/tech-docs/Waitlist) and [Admin Platform](/tech-docs/Admin-Platform).
+This page answers "what does Travingat run on, and why?" in one place. For the detail behind each row, see [Architecture](/tech-docs/Techstack), [Data Model](/tech-docs/Data-Model), [Media Engine](/tech-docs/Media-Engine), [Get Featured](/tech-docs/Get-Featured), [Explorer Cards](/tech-docs/Explorer-Cards), [Waitlist](/tech-docs/Waitlist), [Admin Platform](/tech-docs/Admin-Platform), and the [Runbook](/tech-docs/Runbook) for when something goes wrong.
 
 ```mermaid
 flowchart LR
