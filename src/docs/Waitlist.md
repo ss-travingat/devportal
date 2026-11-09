@@ -1,43 +1,64 @@
 ---
 title: Waitlist & Early Access
-description: The early-access signup mechanism used across Travingat's marketing surfaces to capture interest, confirm signups by email, and feed the admin dashboard's growth metrics.
+description: How early-access signups are captured, confirmed and tracked, what each waitlist entry records, and how it connects to user accounts and the Get Featured funnel.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-03
+updatedAt: 2026-11-09
 ---
 
 # Waitlist & Early Access
 
-The waitlist is Travingat's early-access signup mechanism — a simple email-capture component embedded across marketing surfaces (including the Framer-hosted marketing site) that feeds directly into the same backend used by the core product.
+The waitlist is Travingat's early-access signup. It's an email field that works on any page, including the Framer marketing site, and posts to the same backend as the product. Each waitlist entry also tracks the person through Get Featured.
 
 ```mermaid
 flowchart LR
-    Visitor["Visitor enters email"] --> Signup["Waitlist signup"]
-    Signup --> Confirm["Confirmation email sent"]
-    Confirm --> Dashboard["Tracked in the admin dashboard"]
+    Visitor["Visitor enters email"] --> Entry["Waitlist entry\n(unconfirmed)"]
+    Entry --> Mail["'Confirm your spot' email"]
+    Mail -->|clicks link| Confirmed["Confirmed\n+ welcome email (once)"]
+    Confirmed --> Admin["Visible in admin"]
 ```
 
 ---
 
-## 1. How It Works
+## 1. Signing up
 
-A visitor enters their email into a waitlist widget — available as a standalone embeddable component for use on any marketing page, including the separate Framer-hosted site. On submission:
-
-1. The email is validated and recorded.
-2. A confirmation email is sent, with a link the visitor clicks to confirm their spot.
-3. Browser and location context (device type, browser, approximate region) is captured automatically, giving the team visibility into where signups are coming from without requiring any extra input from the visitor.
-4. Already-confirmed emails are recognized gracefully — a returning visitor sees a friendly "you're already on the list" message rather than a duplicate signup.
-
----
-
-## 2. Admin Visibility
-
-Every waitlist signup — confirmed or pending — is visible in the `travingat-admin` dashboard, alongside the same browser/device/location context captured at signup. This gives the team a real-time view of growth momentum and lets staff follow up directly from the dashboard.
+1. **Submit:** the visitor enters an email (`POST /api/waitlist`). The entry is created unconfirmed, with a confirmation token.
+2. **Confirm:** a "Confirm your spot" email links to `app.travingat.com/waitlist/confirm?token=…`. Clicking it confirms the entry.
+3. **Welcome:** a "Welcome to Travingat" email is sent once per person, whichever way they arrive (waitlist confirmation or Get Featured). `welcome_email_sent_at` stops it being sent twice.
+4. **Context:** browser, device, country, city and IP are recorded automatically.
+5. **Repeat signups:** an email that's already confirmed gets a "you're already on the list" response. An unconfirmed one gets a fresh confirmation email instead of a duplicate entry.
 
 ---
 
-## 3. Why It's Built This Way
+## 2. What an entry records
 
-- **Embeddable anywhere**: the widget is a drop-in component that works on any page, including the standalone marketing site, without requiring that page to share Travingat's backend or codebase.
-- **Confirmed interest, not just emails**: the confirmation-email step filters out typos and low-intent signups, so the number in the dashboard reflects genuinely interested people.
-- **Zero-friction for the visitor**: one field, one click — device and location context are inferred automatically rather than asked for.
+| Field | Meaning |
+| :--- | :--- |
+| `email` | Unique; the key for the entry |
+| `user_id` | Link to the person's user account, once they have one |
+| `confirmed`, `confirmed_at` | Whether they clicked the confirmation link |
+| `source` | Where the signup came from (e.g. `Waitlist`) |
+| `browser`, `device`, `country`, `city`, `ip` | Signup context |
+| `get_featured_status` | Where they are in [Get Featured](/tech-docs/Get-Featured) |
+| `featured_application` | The exact application they submitted, frozen at submit time |
+| `explorer_card_status`, `card_style`, `countries_count` | Explorer Card progress |
+| `welcome_email_sent_at` | When the welcome email went out |
+| `deleted_at` | Set when removed in admin (recoverable from the recycle bin) |
+
+The entry is matched to the user by email. `user_id` is filled in when an account with that email exists.
+
+---
+
+## 3. In admin
+
+Every entry, confirmed or not, is listed in admin with its signup context, Get Featured status and Explorer Card progress. Staff can:
+- resend the confirmation email;
+- remove an entry, which sends it to the recycle bin.
+
+---
+
+## 4. Why it's built this way
+
+- **Works anywhere:** the signup is a plain API call, so the Framer site can use it without sharing code with the product.
+- **Confirmed interest:** the confirmation step filters out typos and low-intent signups.
+- **One record across the funnel:** the same entry follows the person from waitlist to Explorer Card to Get Featured, so admin sees one timeline per person.

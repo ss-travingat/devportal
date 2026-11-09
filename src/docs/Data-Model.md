@@ -15,7 +15,7 @@ Every person on Travingat is **one row in `users_user`**. That row holds who the
 
 Nothing about a person is stored twice. A profile and a card read the person's name, country, countries and flags from the same `users_user` row, so editing them in one place updates both.
 
-> This layout has been in place since 9 Nov 2026. Before that, name, country, photos, visited countries and flags were copied separately onto the user, the profile and the card. See [Migration history](#migration-history).
+> This layout has been in place since 9 Nov 2026. Before that, name, country, photos, visited countries and flags were copied separately onto the user, the profile and the card. See Migration history (section 6).
 
 ---
 
@@ -316,4 +316,4 @@ The consolidation shipped in stages on 9 Nov 2026. Each stage was rehearsed on a
 - **Counters** (`profiles_featuredprofile.countries`, `media`, `collections`) are kept up to date by application code, not by the database.
 - **`interests` and `languages`** are JSON lists, while `users_user` uses Postgres arrays for its lists.
 - **`waitlist_waitlistentry`** has `deleted_at` but no manager that hides deleted rows, and uses an integer primary key where everything else uses UUIDs.
-- **Image URLs** on the profile tables are not foreign keys to `media_engine_mediaasset`; see [§4](#4-references-without-a-foreign-key).
+- **Image URLs** on the profile tables are not foreign keys to `media_engine_mediaasset`; see section 4 above.

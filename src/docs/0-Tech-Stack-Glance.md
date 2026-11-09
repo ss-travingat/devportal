@@ -1,38 +1,46 @@
 ---
 title: Tech Stack at a Glance
-description: A plain-English, one-page summary of every technology and service Travingat runs on, and why each one was chosen — written for founders, investors, and anyone doing technical due diligence.
+description: A one-page, plain-English summary of every technology and service Travingat runs on, where it is hosted, and why it was chosen.
 category: Overview
 author: Travingat Engineering
-updatedAt: 2026-11-03
+updatedAt: 2026-11-09
 ---
 
 # Tech Stack at a Glance
 
-This page is the quick answer to "what technology does Travingat use, and why?" — a one-page summary anyone on the team can use to explain the stack confidently, without needing to be an engineer. For deeper technical detail (exact versions, architecture diagrams, data models), see the companion docs: [Tech Stack & Architecture](/tech-docs/Techstack), [Media Engine](/tech-docs/Media-Engine), [Get Featured](/tech-docs/Get-Featured), [Explorer Cards](/tech-docs/Explorer-Cards), [Waitlist](/tech-docs/Waitlist), [Admin Platform](/tech-docs/Admin-Platform), and [Data Model](/tech-docs/Data-Model).
+This page answers "what does Travingat run on, and why?" in one place. For the detail behind each row, see [Architecture](/tech-docs/Techstack), [Data Model](/tech-docs/Data-Model), [Media Engine](/tech-docs/Media-Engine), [Get Featured](/tech-docs/Get-Featured), [Explorer Cards](/tech-docs/Explorer-Cards), [Waitlist](/tech-docs/Waitlist) and [Admin Platform](/tech-docs/Admin-Platform).
 
-| Part | Technology | What it does in simple terms | Why we chose it |
+```mermaid
+flowchart LR
+    Visitor["Visitors & creators"] --> Framer["travingat.com\nmarketing site (Framer)"]
+    Visitor --> App["app.travingat.com\nprofiles & Explorer Cards"]
+    Team["Travingat team"] --> Admin["admin.travingat.com"]
+    Team --> Dev["devportal.travingat.com\n(Vercel)"]
+    App --> API["api.travingat.com\nDjango backend"]
+    Admin --> API
+    Dev --> API
+    API --> DB[("PostgreSQL")]
+    API --> R2[("Cloudflare R2\nphotos & backups")]
+```
+
+| Part | Technology | What it does | Why we chose it |
 | :--- | :--- | :--- | :--- |
-| **Marketing website** | Framer | Runs our public landing page, pricing, blog, and waitlist pages | Lets the team publish and update marketing pages quickly, without needing an engineer for every content change |
-| **Web app** | Next.js, React, TypeScript | Runs the screens travelers use to apply, build their profile, and browse Explorer Cards | A modern, widely-adopted framework that's fast for users, strong for search visibility, and backed by a large talent pool |
-| **Admin dashboard** | Next.js, React, TypeScript | The internal tool our team uses to review applications, manage the waitlist, and moderate content | Shares the same stack and patterns as the main web app, so the team builds and maintains everything with one set of skills |
-| **Developer portal** | Next.js, React, TypeScript | Internal tool for monitoring media processing, tracking cloud spend, and hosting our technical documentation | Keeps internal tooling consistent with the rest of the stack, built and maintained by the same team |
-| **Backend & API** | Python, Django | Handles core application logic — accounts, profiles, applications — and serves data to every app | A mature, security-focused framework with a long production track record, letting the team build on proven foundations instead of reinventing the basics |
-| **Database** | PostgreSQL | Stores user accounts, profile details, visited countries, and photo collections | The most widely trusted open-source database for this kind of structured, relational data, with no licensing cost |
-| **Photo & video storage** | Cloudflare R2 | Stores every photo and video travelers upload, plus database backups | Charges nothing for data leaving storage (egress), which keeps serving media to a growing user base cost-predictable |
-| **Media optimization** | Celery, Redis | Automatically compresses and resizes every uploaded photo and video for fast loading on any device | A proven, widely-used pattern for handling heavy work in the background without slowing down the app for users |
-| **Hosting** | Contabo VPS, Docker | Runs our applications, database, and background workers | Dedicated, predictably-priced infrastructure with full control, which is more cost-efficient than usage-based cloud pricing at our current stage |
-| **Content delivery & security** | Cloudflare | Protects the platform from malicious traffic and delivers it quickly to users anywhere in the world | An industry-standard edge network that adds enterprise-grade security and speed with minimal engineering overhead |
-| **Authentication** | JWT (JSON Web Tokens) | Keeps users securely signed in across the web app and admin dashboard | A widely-adopted, stateless standard for secure sessions that works cleanly across multiple separate apps |
-| **Automated emails** | Gmail SMTP | Sends verification codes, confirmations, and notification emails | A reliable, no-added-cost way to handle current email volume, with a straightforward path to a dedicated provider as volume grows |
-| **Location search** | Komoot Photon (OpenStreetMap) | Powers city and country search when creators log where they've traveled | A free, open-data geocoding service that avoids ongoing paid API costs for a feature used throughout the product |
-| **Error monitoring** | Sentry | Gives the engineering team real-time visibility into application health in production | The industry-standard tool for this, so the team can monitor quality proactively as the platform scales |
-| **Code management & deployment** | GitHub, GitHub Actions | Stores our full code history and automatically deploys updates when the team ships changes | Automated deployments remove manual steps from shipping, so the team can release updates often and consistently |
+| **Marketing website** | Framer | The public landing page, pricing, blog and waitlist pages on `travingat.com` | The team can publish marketing changes without an engineer |
+| **Product web app** | Next.js 16 + React 19 (`travingat-landing`) | Creator profiles, Explorer Cards and the Get Featured flow on `app.travingat.com` | One framework for fast server-rendered public pages and interactive editors |
+| **Admin dashboard** | Next.js 16 (`travingat-admin`) | Profile review, Get Featured approvals, waitlist, users and recycle bin on `admin.travingat.com` | Same stack as the product, so staff tools stay in step with it |
+| **Developer portal** | Next.js 16 (`devportal`), hosted on Vercel | Media Engine monitoring, service-cost tracking and these docs | Kept off the production server so ops tooling never competes with the product |
+| **Backend API** | Django 4.2 + Django REST Framework, served by Daphne | Accounts, profiles, cards, waitlist, media processing and all business rules on `api.travingat.com` | Mature, secure, and quick to build on, with migrations for safe schema changes |
+| **Database** | PostgreSQL 18 | The single source of truth for every person, profile, card and media record | Reliable, relational, and runs right next to the API for low latency |
+| **Background jobs** | Celery + Redis | Image optimisation, thumbnails, scans, hourly backups | Heavy work runs outside the web request, so pages stay fast |
+| **Live updates** | Django Channels over WebSockets | Pushes Media Engine job progress to dashboards as it happens | No polling; the dashboard updates the moment a job finishes |
+| **File storage & CDN** | Cloudflare R2 + `cdn.travingat.com` | Stores every photo and the database backups; serves photos worldwide | S3-compatible with no bandwidth fees |
+| **Image processing** | libvips (AVIF) and Blurhash | Converts uploads to small AVIF files and makes blurred placeholders | Very fast and memory-efficient; AVIF is far smaller than JPEG |
+| **Hosting** | One Contabo VPS running Docker, behind Cloudflare | Runs the backend, database, Redis, workers and both Next.js apps | Predictable cost and full control; Cloudflare adds SSL and DDoS protection |
+| **Monitoring** | Sentry, Prometheus metrics, JSON logs | Error alerts, request metrics and traceable logs | Problems show up quickly, with the request that caused them |
+| **Email** | Django email (SMTP) | One-time login codes, waitlist confirmation, approval and feedback emails | Built into the backend; templates live next to the code |
 
----
+### How to read this
 
-### How to read this table
-
-- **Technology** names the specific tool or service — the deeper docs linked above go into exact versions and configuration.
-- **Why we chose it** reflects the reasoning behind each choice: cost-efficiency, reliability, team velocity, or industry-standard practice — the same criteria any growing engineering team weighs.
-
-Travingat's stack is intentionally built on mature, widely-adopted technology rather than exotic or unproven tools — the goal is a foundation the team can scale confidently as the platform grows.
+- **One person, one record.** Everyone is a single user row in PostgreSQL. Their profile and Explorer Card both read name, country, countries and flags from it. See [Data Model](/tech-docs/Data-Model).
+- **Photos never pass through the web server.** Browsers upload straight to R2, then the Media Engine optimises them in the background.
+- **Backups leave the server every hour.** A compressed database snapshot is written to R2 hourly, with one daily snapshot kept for 30 days.

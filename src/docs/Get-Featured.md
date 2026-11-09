@@ -1,128 +1,129 @@
 ---
 title: Get Featured — Creator Application & Profile Builder
-description: How travelers apply to become published Featured Profiles on Travingat — the application flow, the guided profile-builder wizard, media upload handling, and the admin review pipeline.
+description: The path from applying to a published Featured Profile — the status lifecycle, the application, the profile-builder wizard, photo uploads, and admin review with its emails.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-03
+updatedAt: 2026-11-09
 ---
 
 # Get Featured — Creator Application & Profile Builder
 
-"Get Featured" is Travingat's pathway for a traveler to become a published **Featured Profile** — a public creator portfolio on the platform. The experience is split into two purposeful phases: a lightweight **Application**, and a guided **Profile Builder** that only unlocks once an application is approved.
+"Get Featured" is how a traveler becomes a published **Featured Profile**, a public creator portfolio at `app.travingat.com/<handle>`. It has two phases: a short **application**, then a guided **profile builder** that opens only after the application is approved.
 
 ```mermaid
 flowchart LR
-    A["Application\n/getfeatured"] -->|Reviewed & approved by Travingat| B["Profile Builder\n/get-featured/create"]
-    B -->|Submitted for review| C["Admin Review Queue"]
-    C -->|Approved| D["Published Featured Profile"]
+    A["Apply\n/getfeatured"] -->|team approves| B["Build profile\n/get-featured/create"]
+    B -->|submit| C["Review queue"]
+    C -->|approve| D["Profile live"]
+    C -->|request changes| B
 ```
 
 ---
 
-## 1. Application
+## 1. Status lifecycle
 
-A traveler verifies their email with a one-time code, then fills in a short form — name, home country, number of countries visited, and at least one social/portfolio link. This keeps the entry barrier low: no full account creation, no commitment beyond a few fields.
-
-```mermaid
-sequenceDiagram
-    autonumber
-    actor User
-    participant App as Application Form
-    participant Platform as Travingat Platform
-
-    User->>App: Enter email
-    App->>Platform: Request verification code
-    Platform-->>User: Code sent via email
-
-    User->>App: Enter code
-    Platform-->>App: Verified — session established
-    App->>App: Pre-fills name/country from any existing profile
-
-    User->>App: Complete application (name, country, countries visited, links)
-    App->>Platform: Submit application
-    Platform-->>App: Confirmation
-```
-
-Submitted applications enter the Travingat review queue, where the team evaluates each one before granting access to the full profile builder.
-
----
-
-## 2. Profile Builder Wizard
-
-Once an application is approved, the creator receives access to `/get-featured/create` — a guided, multi-step wizard that produces the final published profile. Every step can be saved as a draft and resumed later, so the creator is never forced to finish in one sitting.
+One set of statuses is used everywhere: the waitlist entry (`get_featured_status`) and the profile (`review_status`).
 
 ```mermaid
-flowchart TD
-    Verify["Verify identity"] --> Profile["Profile\nName, handle, avatar & cover"]
-    Profile --> About["About\nBio, languages, interests, social links"]
-    About --> Countries["Countries Visited"]
-    Countries --> Photos["Country Photo Galleries"]
-    Photos --> Collections["Curated Collections\n(albums grouping photos by theme or trip)"]
-    Collections --> Submit["Submit for Review"]
+stateDiagram-v2
+    [*] --> not_applied
+    not_applied --> pending: verifies email on /getfeatured
+    pending --> applied: submits application
+    applied --> draft: team approves application
+    draft --> ready_for_review: submits profile
+    ready_for_review --> published: team approves
+    ready_for_review --> changes_requested: team requests changes
+    changes_requested --> ready_for_review: resubmits
+    published --> ready_for_review: submits edits
 ```
 
-| Step | Purpose |
+| Status | Meaning |
 | :--- | :--- |
-| **Profile** | Name, handle, avatar and cover image with built-in cropping |
-| **About** | Bio, current location, languages, interests, social links |
-| **Countries** | The list of countries the creator has visited |
-| **Photos** | A photo gallery for each visited country |
-| **Collections** | Curated albums that group photos by trip or theme, each with its own description and country tags |
-
-A creator can leave at any point via **Save & Exit**, and return later exactly where they left off — their in-progress wizard state, including every photo and selection made so far, is restored automatically. If a submission needs changes, the specific feedback is shown directly in the wizard so the creator knows exactly what to update before resubmitting.
+| `not_applied` | Never started Get Featured (for example, only joined the waitlist or made an Explorer Card) |
+| `pending` | Verified their email on `/getfeatured` but hasn't sent the application |
+| `applied` | Application sent; waiting for the team |
+| `draft` | Application approved; building the profile |
+| `ready_for_review` | Profile submitted for review |
+| `changes_requested` | The team asked for changes; the creator edits and resubmits |
+| `published` | Live |
 
 ---
 
-## 3. Media Upload
+## 2. Application
 
-Photos are uploaded directly from the browser to Travingat's cloud storage, bypassing the application server entirely — this keeps uploads fast and keeps server load independent of how many photos a creator adds.
+The traveler verifies their email with a one-time code, then sends a short form: name, home country, number of countries visited, and their social or portfolio links. The fields are prefilled from any existing card or profile. A snapshot of exactly what they sent is kept on the waitlist entry (`featured_application`), so later edits elsewhere don't change what the reviewer sees.
+
+The team sees applications in admin under **Featured Requests**. Approving one sends "You've been selected to get featured on Travingat" with a link to the profile builder. Declining sends an email explaining why.
+
+---
+
+## 3. Profile builder
+
+`/get-featured/create` is a step-by-step wizard. Every step can be saved and resumed later.
+
+```mermaid
+flowchart TD
+    V["Verify email"] --> P["Profile\nname, handle, avatar & cover"]
+    P --> A["About\nbio, current location, languages, interests, socials, about photos"]
+    A --> C["Countries visited"]
+    C --> Ph["Photos for each country"]
+    Ph --> Co["Collections\nalbums by theme or trip"]
+    Co --> S["Submit for review"]
+```
+
+| Step | What the creator adds |
+| :--- | :--- |
+| **Profile** | Name, handle (Instagram-style: letters, numbers, `.` and `_`), avatar and cover with cropping |
+| **About** | Bio, current location, languages, interests, social links, about photos |
+| **Countries** | The countries they've visited |
+| **Photos** | A photo folder for each country (up to 30 photos per country) |
+| **Collections** | Albums with a title, description, countries and photos (up to 30 per collection) |
+
+- **Save & Exit** keeps everything, and the creator picks up where they left off.
+- **Change requests:** if the team asked for changes, the reason is shown in the wizard.
+- **Editing a live profile:** submitting the edits sends it back for review. Re-saving a profile never deletes photos it already has; only the sections being changed are replaced.
+
+The profile's name, country, photos and countries are stored on the person's user record and shared with their Explorer Card. The profile itself holds the handle, bio, socials, photos and collections. See [Data Model](/tech-docs/Data-Model).
+
+---
+
+## 4. Photo uploads
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor User
-    participant Modal as Upload Step
-    participant Storage as Cloud Storage
-    participant Pipeline as Media Processing
+    actor Creator
+    participant App as Wizard
+    participant R2 as Cloudflare R2
+    participant ME as Media Engine
 
-    User->>Modal: Add a photo
-    Modal->>Storage: Upload begins immediately in the background
-    Note over Modal: The creator keeps working —\nuploads happen while they fill out later steps
-    Storage-->>Modal: Upload confirmed
-    Modal->>Pipeline: Queue for optimization (web-ready formats, thumbnails)
+    Creator->>App: Add a photo
+    App->>R2: Upload directly (presigned URL)
+    Note over App: Uploads run in the background while the creator keeps going
+    App->>ME: Request optimisation
+    ME->>R2: AVIF + 720px thumbnail + blurhash
 ```
 
-Key characteristics of the upload experience:
-
-- **Uploads start the instant a photo is added**, not when the wizard is finally submitted — by the time a creator reaches the final step, most or all of their photos are already uploaded, so submission is fast.
-- **A 20 MB per-file size limit** keeps uploads quick and consistent across devices.
-- Every uploaded photo is automatically run through Travingat's media optimization pipeline, producing web-ready, compressed versions and thumbnails for fast loading everywhere the profile is shown. See the [Media Engine](/tech-docs/Media-Engine) doc for the full pipeline.
-
-> **Video uploads are not yet enabled for creators in this release.** The upload interface currently accepts photos only; video support is planned for a future release.
+- **Uploads start as soon as a photo is added**, so submitting is quick even with many photos.
+- **Limits:** photos only (no video yet), up to 20 MB each.
+- **Processing:** every photo is optimised by the [Media Engine](/tech-docs/Media-Engine).
 
 ---
 
-## 4. Admin Review
+## 5. Review
 
-Every submitted profile enters a review queue inside the Travingat team dashboard. A reviewer sees the complete profile exactly as the creator built it, and can:
+Submitted profiles appear in admin under **Profiles → Review**, filterable by status. The reviewer sees the profile as the creator built it, then either:
 
-- **Approve** — the profile is published immediately, and the creator is notified automatically.
-- **Request changes** — the creator receives specific, actionable feedback and can resubmit directly from the wizard.
+- **approves** it: the profile goes live and the creator gets "Your profile is now live on Travingat!"; or
+- **requests changes** with a reason: the creator gets "Action required: updates needed for your Travingat profile" and sees the reason in the wizard.
 
-```mermaid
-flowchart TD
-    Queue["Review Queue"] --> Decision{"Reviewer decision"}
-    Decision -->|Approve| Publish["Profile published\nCreator notified"]
-    Decision -->|Request changes| Feedback["Feedback sent to creator\nShown inline in the wizard on resubmission"]
-```
-
-This two-sided loop — clear admin feedback paired with an easy resubmission path — keeps the approval process collaborative rather than a one-shot pass/fail gate.
+The queue only shows real submissions. Sample profiles made in the admin editor never appear in it.
 
 ---
 
-## 5. Why It's Built This Way
+## 6. Why it's built this way
 
-- **Low-commitment entry, high-quality output.** The short application filters intent before anyone invests time in the full builder; the builder itself is thorough enough to produce a genuinely polished public profile.
-- **Never lose progress.** Every step autosaves, so a creator can build their profile across multiple sessions without friction.
-- **Fast by design.** Starting uploads the moment a photo is added — rather than batching everything at the end — means submission feels instant even for profiles with dozens of photos.
-- **A real feedback loop, not a black box.** Rejected submissions come back with specific reasons, turning review into a collaborative step rather than a dead end.
+- **The short application filters intent** before anyone spends time on the full builder.
+- **Progress is never lost:** drafts save at every step.
+- **Fast submission:** photos upload while the creator works, not at the end.
+- **Review is a conversation:** change requests come with a reason and an easy way to resubmit.
