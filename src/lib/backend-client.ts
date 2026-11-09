@@ -35,8 +35,10 @@ export async function backendFetch(path: string, options: RequestInit = {}): Pro
     // cookies() unavailable outside request context (e.g. build time)
   }
 
-  // Always supply Authorization Bearer token for devportal internal endpoints or when no session cookie exists
-  if (!headers.has('Authorization') && DEVPORTAL_TOKEN) {
+  // Supply the bearer token only for server-to-server calls where no session
+  // cookie is present. When a real admin_session cookie exists, Django
+  // authenticates through that instead, keeping the token out of the wire.
+  if (!hasSessionCookie && !headers.has('Authorization') && DEVPORTAL_TOKEN) {
     headers.set('Authorization', `Bearer ${DEVPORTAL_TOKEN}`);
   }
 

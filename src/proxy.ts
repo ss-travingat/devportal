@@ -1,17 +1,38 @@
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+const BACKEND_URL = process.env.BACKEND_URL || 'http://127.0.0.1:8000';
+
+/**
+ * Verifies the admin_session cookie is a valid signed token by asking Django.
+ * Returns false on any network or parse error so the proxy fails closed.
+ */
+async function verifyAdminSession(cookie: string): Promise<boolean> {
+  try {
+    const res = await fetch(`${BACKEND_URL}/api/admin/session`, {
+      headers: { Cookie: `admin_session=${cookie}` },
+      // Don't follow redirects — a 302 means the cookie is bad.
+      redirect: 'manual',
+    });
+    if (!res.ok) return false;
+    const data = await res.json();
+    return data?.authenticated === true;
+  } catch {
+    return false;
+  }
+}
+
 /**
  * Next.js 16 Proxy Convention
  * Enforces shared admin_session authentication across devportal routes.
+ * The cookie is validated by Django on every request (not just checked for
+ * existence), so a forged or expired cookie is rejected here.
  */
 export async function proxy(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   const url = req.nextUrl;
 
-  // Django sets admin_session cookie upon successful admin login
   const adminCookie = req.cookies.get('admin_session')?.value?.trim();
-  const isAuthenticated = Boolean(adminCookie);
 
   const isLoginPage = url.pathname === '/login' || url.pathname === '/signin';
   const isLogoutPage = url.pathname === '/logout';
@@ -32,10 +53,14 @@ export async function proxy(req: NextRequest) {
     return res;
   }
 
-  // Allow auth APIs and health check
+  // Allow auth APIs and health check through without a session check so that
+  // /api/admin/login and /api/admin/session themselves are always reachable.
   if (isAuthApi || isHealthApi) {
     return NextResponse.next({ request: { headers: requestHeaders } });
   }
+
+  // Validate the cookie with Django (not just check for presence).
+  const isAuthenticated = adminCookie ? await verifyAdminSession(adminCookie) : false;
 
   // If on login/signin:
   // - If ?logout=1 query present, purge cookies and allow viewing login page
