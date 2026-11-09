@@ -8,7 +8,7 @@ updatedAt: 2026-11-03
 
 # Tech Stack at a Glance
 
-This page is the quick answer to "what technology does Travingat use, and why?" — a one-page summary anyone on the team can use to explain the stack confidently, without needing to be an engineer. For deeper technical detail (exact versions, architecture diagrams, data models), see the companion docs: [Tech Stack & Architecture](/tech-docs/Techstack), [Media Engine](/tech-docs/Media-Engine), [Get Featured](/tech-docs/Get-Featured), [Explorer Cards](/tech-docs/Explorer-Cards), [Waitlist](/tech-docs/Waitlist), and [Admin Platform](/tech-docs/Admin-Platform).
+This page is the quick answer to "what technology does Travingat use, and why?" — a one-page summary anyone on the team can use to explain the stack confidently, without needing to be an engineer. For deeper technical detail (exact versions, architecture diagrams, data models), see the companion docs: [Tech Stack & Architecture](/tech-docs/Techstack), [Media Engine](/tech-docs/Media-Engine), [Get Featured](/tech-docs/Get-Featured), [Explorer Cards](/tech-docs/Explorer-Cards), [Waitlist](/tech-docs/Waitlist), [Admin Platform](/tech-docs/Admin-Platform), and [Data Model](/tech-docs/Data-Model).
 
 | Part | Technology | What it does in simple terms | Why we chose it |
 | :--- | :--- | :--- | :--- |

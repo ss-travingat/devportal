@@ -3,7 +3,7 @@ title: Travingat — Production Tech Stack & Architecture Overview
 description: End-to-end production architecture, container infrastructure, database topology, microservices, and media processing pipeline across the Travingat ecosystem.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-02
+updatedAt: 2026-11-09
 ---
 
 # Travingat — Production Tech Stack & Architecture Overview
@@ -205,17 +205,19 @@ erDiagram
     MediaAsset ||--o{ MediaJob : processes
     MediaJob ||--o{ JobLog : records
 
-    DevportalImageUpload ||--o| MediaAsset : references
-    ServiceSubscription }|--|| User : managed_by
+    DevportalImageUpload }o..o| MediaAsset : "references (bare UUID, no FK)"
 ```
+
+The full column-level schema for users, profiles and Explorer Cards is in [Data Model](/tech-docs/Data-Model).
 
 ### Model Responsibilities
 
-- **`FeaturedProfile`:** Normalized creator portfolio record containing bio, country counts, social links, and cover/avatar image references with Blurhash strings.
+- **`User`:** The single record for a person: name, home country, avatar and cover photo, visited countries (ISO codes), and the featured / badge / sample / card-style flags. Profiles and Explorer Cards read these from here.
+- **`FeaturedProfile`:** The creator's profile content: handle, bio, social links, review status, profile-page crops, and country/collection counters.
 - **`ProfileCountryGroup` & `ProfileCollection`:** Groups creator photos by visited country and curated albums with custom header stacks and blurhashes.
-- **`ExplorerCard`:** User travel passport card state, visited country codes, custom styling variants (*Classic*, *Minimal*, *Adventure*), and export snapshots.
+- **`ExplorerCard`:** The travel passport card: per-style cover crops (*Classic*, *Minimal*, *Adventure*), the profile-photo crop, and any cover/profile photo uploaded on the card itself (otherwise it shows the user's).
 - **`MediaAsset` & `MediaVariant`:** Comprehensive media asset tracking tracking original sizes, MIME types, processing statuses, soft deletes, and derivative WebP/AVIF/thumbnail files.
-- **`ServiceSubscription`:** Operational expense tracking in Devportal for cloud services, recurring fees, and billing frequencies.
+- **`ServiceSubscription`:** Operational expense tracking in Devportal for cloud services, recurring fees, and billing frequencies. Its `owner` is a plain name field, not a link to a user.
 
 ---
 
