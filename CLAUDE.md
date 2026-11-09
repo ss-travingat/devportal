@@ -4,7 +4,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-`dev-portal` is Travingat's internal developer portal: a Next.js (App Router) app for monitoring the Media Engine pipeline, tracking service/cloud subscriptions and spend, and hosting technical documentation. It is a thin client/BFF in front of the sibling Django backend (`../backend`), not a standalone app — most data lives in and is mutated through that backend's API.
+`dev-portal` is Travingat's internal developer portal (`devportal.travingat.com`): a Next.js (App Router) app for monitoring the Media Engine pipeline, tracking service/cloud subscriptions and spend, and hosting technical documentation. It is a thin client/BFF in front of the sibling Django backend (`../backend`), not a standalone app — most data lives in and is mutated through that backend's API.
+
+**Hosting:** unlike the other Travingat apps (Docker on the Contabo VPS), devportal is hosted on **Vercel**. `.github/workflows/ci.yml` only runs checks; deploys come from Vercel's GitHub integration. Production env vars (`BACKEND_URL`, `DEVPORTAL_API_TOKEN`) are set in the Vercel project.
 
 ## Commands
 
@@ -41,14 +43,14 @@ Custom cookie-based session, not NextAuth/JWT-in-this-app. `src/proxy.ts` (Next.
 - `app/` — routes and route handlers (App Router)
 - `components/` — shared UI; `components/media-engine/` holds the tab/panel components for the Media Engine dashboard (queue, orphans, benchmarks, recycle bin, etc.)
 - `lib/` — `backend-client.ts` (Django fetch wrapper), `storage.ts` (localStorage persistence), `media-utils.ts`, `validations/subscription.ts`
-- `docs/` — Markdown source files (with frontmatter) served by `/api/docs` and rendered at `/tech-docs/[slug]` via `MarkdownViewer`/`react-markdown` (+ `MermaidBlock` for Mermaid diagrams)
+- `docs/` — Markdown source files (with frontmatter: `title`, `description`, `category`, `author`, `updatedAt`) served by `/api/docs` and rendered at `/tech-docs/[slug]` via `MarkdownViewer`/`react-markdown` (+ `MermaidBlock` for Mermaid diagrams). These are the team's source of truth for the whole platform: `0-Tech-Stack-Glance`, `Techstack` (architecture/infra), `Data-Model`, `Media-Engine`, `Explorer-Cards`, `Get-Featured`, `Waitlist`, `Admin-Platform`, `Runbook` (outages, DB restore, server moves). All were re-verified against the code on 2026-11-09 — when backend/landing/admin behaviour changes, update the matching page and its `updatedAt`. Authoring notes: headings get no `id`s, so `#section` links don't work; in Mermaid flowchart labels use `\n` for line breaks (not `<br/>`), matching the existing diagrams.
 - `types/` — shared TS types
 
 ### Styling
 Tailwind CSS v4 via the Turbopack loader (`@tailwindcss/turbopack`, configured in `next.config.ts`), dark theme hardcoded in `layout.tsx` (`bg-[#121212]`), icons from `lucide-react`.
 
 ### Relation to other repos
-Sibling repo `../backend` is a Django project (apps: `core`, `media_engine`, `users`, `waitlist`, `profiles`, `system`, `monitoring`, content, etc.) that owns the actual data and business logic (accounts, media processing pipeline, waitlist). This devportal app is purely an internal admin/ops client for it — treat Django as the source of truth and this repo's API routes as a proxy/auth layer, not a separate data layer (aside from the docs and the localStorage-only subscriptions noted above).
+Sibling repo `../backend` is a Django project (apps: `core`, `users`, `profiles`, `waitlist`, `media_engine`, `devportal`, `system`) that owns the actual data and business logic (accounts, profiles and Explorer Cards, media processing pipeline, waitlist). This devportal app is purely an internal admin/ops client for it — treat Django as the source of truth and this repo's API routes as a proxy/auth layer, not a separate data layer (aside from the docs and the localStorage-only subscriptions noted above).
 
 ## Notes
 
