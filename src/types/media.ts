@@ -232,4 +232,7 @@ export interface OrphanScanResult {
   totalReferenced: number;
   totalOrphaned: number;
   totalOrphanedBytes: number;
+  scannedAt?: string;
+  minAgeHours?: number;
+  cached?: boolean;
 }

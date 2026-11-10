@@ -106,7 +106,7 @@ A nightly job (`core.celery.purge_recycle_bin_task`, runs at 02:00 UTC) permanen
 - user avatars and covers, and Explorer Card photos;
 - photos of soft-deleted profiles and users, which count as in use because they can be restored.
 
-Its delete action **permanently removes files from R2**, so review the list first.
+Files younger than 24 hours are never listed. Its delete action **permanently removes files from R2**, so review the list first; it skips any file that became referenced since the scan.
 
 ---
 

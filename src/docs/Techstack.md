@@ -130,6 +130,7 @@ Browsers upload straight to R2 with presigned URLs, so files never pass through 
 | `scan_missing_thumbnails_task` | nightly, 04:00 | Queues 720p thumbnails that are missing |
 | `devportal.reconcile_user_storage` | nightly, 03:00 | Checks per-user storage counters against R2 (dry run) |
 | `devportal.cleanup_expired_images` | every 5 minutes | Purges legacy sandbox uploads past their expiry |
+| `scan_orphans_task` | nightly, 05:00 | Scans R2 for unreferenced files and caches the result for the Orphans tab (report only, deletes nothing) |
 | `purge_recycle_bin_task` | nightly, 02:00 | Permanently deletes users, profiles and waitlist entries in the recycle bin for more than 30 days |
 
 ---

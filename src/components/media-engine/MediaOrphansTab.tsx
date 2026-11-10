@@ -153,6 +153,8 @@ export default function MediaOrphansTab({
               </h3>
               <p className="text-xs text-zinc-400 mt-1 max-w-2xl leading-relaxed">
                 Detects unreferenced files in Cloudflare R2 storage that were uploaded during draft sessions or deleted profiles without being referenced in production databases.
+                {result?.minAgeHours ? ` Files newer than ${result.minAgeHours}h are never listed.` : ''}
+                {result?.scannedAt ? ` Last scanned ${new Date(result.scannedAt).toLocaleString()}.` : ''}
               </p>
             </div>
           </div>

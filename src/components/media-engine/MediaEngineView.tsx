@@ -477,13 +477,34 @@ export default function MediaEngineView() {
     },
   });
 
-  // Scan storage orphans
+  // Scan storage orphans: queue the Celery scan on the maintenance worker, then
+  // poll the cached result until a newer scan (different scannedAt) shows up.
   const scanOrphansMutation = useMutation({
     mutationFn: async () => {
-      const res = await fetch('/api/media-engine/orphans');
-      const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.error || 'Failed to scan storage orphans');
-      return data as OrphanScanResult;
+      const fetchCached = async (): Promise<OrphanScanResult | null> => {
+        const res = await fetch('/api/media-engine/orphans?cached_only=1');
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.error || 'Failed to read storage scan');
+        return res.status === 202 || data.pending ? null : (data as OrphanScanResult);
+      };
+
+      const baseline = (await fetchCached())?.scannedAt ?? null;
+
+      const queued = await fetch('/api/media-engine/orphans', { method: 'POST' });
+      if (!queued.ok) {
+        const err = await queued.json().catch(() => ({}));
+        throw new Error(err.error || 'Failed to queue storage scan');
+      }
+
+      const deadline = Date.now() + 5 * 60 * 1000;
+      while (Date.now() < deadline) {
+        await new Promise((r) => setTimeout(r, 3000));
+        const result = await fetchCached();
+        if (result && result.scannedAt !== baseline) return result;
+      }
+      throw new Error(
+        'Storage scan did not finish within 5 minutes. Check the celery-maintenance worker.'
+      );
     },
     onSuccess: (data) => {
       setOrphanResult(data);
@@ -521,9 +542,11 @@ export default function MediaEngineView() {
       return data;
     },
     onSuccess: async (data) => {
+      const skipped = data.skipped_referenced ?? 0;
       showFeedback(
         'success',
-        `Successfully deleted ${data.deleted_count ?? 0} orphaned file(s).`
+        `Deleted ${data.deleted_count ?? 0} orphaned file(s).` +
+          (skipped > 0 ? ` Kept ${skipped} that became referenced since the scan.` : '')
       );
       await scanOrphansMutation.mutateAsync();
     },

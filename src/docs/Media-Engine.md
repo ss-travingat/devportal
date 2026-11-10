@@ -3,7 +3,7 @@ title: Media Engine — Processing Pipeline
 description: How every photo uploaded to Travingat becomes a small, web-ready AVIF with a thumbnail and blurhash — ingestion paths, data model, encoding settings, queues, scheduled scans, live status and recovery.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-09
+updatedAt: 2026-11-10
 ---
 
 # Media Engine — Processing Pipeline
@@ -193,6 +193,7 @@ sequenceDiagram
 | Missing thumbnail scan | nightly, 04:00 | Queues 720px thumbnails for optimised images that lack one |
 | Storage reconciliation | nightly, 03:00 | Compares per-user storage counters with R2 (dry run) |
 | Sandbox cleanup | every 5 minutes | Purges legacy Media Portal uploads that still have an expiry; current sandbox uploads are kept permanently |
+| Orphan scan | nightly, 05:00 | Refreshes the cached R2 orphan list (report only) |
 | Database backup | hourly | See [Architecture](/tech-docs/Techstack) |
 
 ---
@@ -211,7 +212,7 @@ flowchart LR
 - **Permanent delete** removes the raw file and all variants from R2 before deleting the row.
 - **Storage counters:** `devportal_userstorage` keeps per-user byte counts. They're updated on delete, restore and successful processing, and reconciled nightly.
 
-> **Orphan cleanup:** the orphan scanner (Profiles → Orphans in admin, and the devportal Orphans tab) lists R2 objects that no profile, card or user references. Its delete **permanently** removes them from R2, so check the list first. Photos of soft-deleted profiles and users count as referenced.
+> **Orphan cleanup:** the orphan scanner (Profiles → Orphans in admin, and the devportal Orphans tab) lists R2 objects that no profile, card or user references. Its delete **permanently** removes them from R2, so check the list first. Photos of soft-deleted profiles and users count as referenced. Files younger than 24 hours are never listed, and the delete re-checks every key against the database, skipping any that became referenced since the scan. The **Scan** button queues the scan on the maintenance worker and waits for the result; the list otherwise comes from the nightly scan (cached for 24 hours).
 
 ---
 

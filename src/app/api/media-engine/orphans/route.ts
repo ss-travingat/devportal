@@ -1,28 +1,48 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { backendFetch } from '@/lib/backend-client';
 
-export async function GET() {
-  try {
-    let res = await backendFetch('/api/media/orphans');
-    if (!res.ok) {
-      // Fallback to /api/profiles/orphans if needed
-      res = await backendFetch('/api/profiles/orphans');
-    }
+const BACKEND_PATH = '/api/profiles/orphans';
 
+// GET            -> cached scan result (backend scans synchronously if none exists yet)
+// GET ?cached_only=1 -> cached result, or { pending: true } (202) while a queued scan is running
+export async function GET(request: NextRequest) {
+  try {
+    const cachedOnly = request.nextUrl.searchParams.get('cached_only');
+    const res = await backendFetch(`${BACKEND_PATH}${cachedOnly ? '?cached_only=1' : ''}`);
+
+    const data = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const errorData = await res.json().catch(() => ({}));
       return NextResponse.json(
-        { error: errorData.error || 'Failed to scan orphans from backend' },
+        { error: data.error || 'Failed to scan orphans from backend' },
         { status: res.status }
       );
     }
-
-    const data = await res.json();
-    return NextResponse.json(data);
+    return NextResponse.json(data, { status: res.status });
   } catch (err: unknown) {
     console.error('Error scanning orphans:', err);
     return NextResponse.json(
       { error: 'Backend unreachable while scanning orphans' },
+      { status: 503 }
+    );
+  }
+}
+
+// POST -> queue the Celery scan on the maintenance worker; returns immediately.
+export async function POST() {
+  try {
+    const res = await backendFetch(BACKEND_PATH, { method: 'POST' });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      return NextResponse.json(
+        { error: data.error || 'Failed to queue orphan scan' },
+        { status: res.status }
+      );
+    }
+    return NextResponse.json(data);
+  } catch (err: unknown) {
+    console.error('Error queueing orphan scan:', err);
+    return NextResponse.json(
+      { error: 'Backend unreachable while queueing orphan scan' },
       { status: 503 }
     );
   }
@@ -36,19 +56,11 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'No keys provided' }, { status: 400 });
     }
 
-    let res = await backendFetch('/api/media/orphans', {
+    const res = await backendFetch(BACKEND_PATH, {
       method: 'DELETE',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ keys }),
     });
-
-    if (!res.ok) {
-      res = await backendFetch('/api/profiles/orphans', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ keys }),
-      });
-    }
 
     const data = await res.json().catch(() => ({}));
     if (!res.ok) {
@@ -66,4 +78,3 @@ export async function DELETE(request: NextRequest) {
     );
   }
 }
-
