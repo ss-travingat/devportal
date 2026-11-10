@@ -3,7 +3,7 @@ title: Architecture — Production Infrastructure
 description: How Travingat runs in production — services and domains, the Contabo host and its containers, the database and backups, storage buckets, background jobs, and security settings.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-09
+updatedAt: 2026-11-10
 ---
 
 # Architecture — Production Infrastructure
@@ -130,6 +130,7 @@ Browsers upload straight to R2 with presigned URLs, so files never pass through 
 | `scan_missing_thumbnails_task` | nightly, 04:00 | Queues 720p thumbnails that are missing |
 | `devportal.reconcile_user_storage` | nightly, 03:00 | Checks per-user storage counters against R2 (dry run) |
 | `devportal.cleanup_expired_images` | every 5 minutes | Purges legacy sandbox uploads past their expiry |
+| `purge_recycle_bin_task` | nightly, 02:00 | Permanently deletes users, profiles and waitlist entries in the recycle bin for more than 30 days |
 
 ---
 

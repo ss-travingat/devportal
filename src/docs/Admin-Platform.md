@@ -3,7 +3,7 @@ title: Admin Platform — Operations Dashboard
 description: What the Travingat team does in admin.travingat.com — profile review, Get Featured approvals, the profile editor and sample profiles, waitlist and users, and the recycle bin — and what each action changes.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-09
+updatedAt: 2026-11-10
 ---
 
 # Admin Platform — Operations Dashboard
@@ -89,7 +89,7 @@ The editor is the same multi-step builder creators use, with extra controls for 
 
 Users, profiles and waitlist entries removed in admin go to the recycle bin. Each can be **restored** in full or **permanently deleted**.
 
-> **Note:** the recycle bin says deleted items are "automatically purged" after 30 days and shows a countdown, but **no automatic purge runs**. Items stay until someone permanently deletes them. Either add a scheduled purge, or change that wording in `RecycleBinClient.tsx`.
+A nightly job (`core.celery.purge_recycle_bin_task`, runs at 02:00 UTC) permanently deletes any record whose `deleted_at` is older than 30 days, matching what the admin's countdown promises. Placeholder (sample) accounts are skipped.
 
 **Permanent delete:**
 - **User:** deletes their waitlist entry, their Featured Profile with all its photo rows, their Explorer Card, then the user.
