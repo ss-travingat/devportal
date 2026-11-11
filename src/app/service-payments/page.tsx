@@ -3,7 +3,6 @@
 import React, { useState, useEffect } from 'react';
 import { Plus, Loader2, AlertCircle } from 'lucide-react';
 import { Subscription, SubscriptionFormData } from '@/types/subscription';
-import { saveSubscriptions } from '@/lib/storage';
 import SubscriptionTable from '@/components/SubscriptionTable';
 import SubscriptionFormModal from '@/components/SubscriptionFormModal';
 import SubscriptionDetailModal from '@/components/SubscriptionDetailModal';
@@ -33,7 +32,6 @@ export default function ServicePaymentsPage() {
         const data = await res.json();
         if (isMounted && Array.isArray(data)) {
           setSubscriptions(data);
-          saveSubscriptions(data);
         }
       } catch (err: unknown) {
         if (isMounted) {
@@ -64,9 +62,7 @@ export default function ServicePaymentsPage() {
         });
         const resData = await res.json();
         if (res.ok && resData.subscription) {
-          const updated = subscriptions.map((s) => (s.id === editId ? resData.subscription : s));
-          setSubscriptions(updated);
-          saveSubscriptions(updated);
+          setSubscriptions(subscriptions.map((s) => (s.id === editId ? resData.subscription : s)));
           return;
         } else if (!res.ok && resData.errors) {
           const firstErr = Object.values(resData.errors)[0];
@@ -87,9 +83,7 @@ export default function ServicePaymentsPage() {
         });
         const resData = await res.json();
         if (res.ok && resData.subscription) {
-          const updated = [resData.subscription, ...subscriptions];
-          setSubscriptions(updated);
-          saveSubscriptions(updated);
+          setSubscriptions([resData.subscription, ...subscriptions]);
           return;
         } else if (!res.ok && resData.errors) {
           const firstErr = Object.values(resData.errors)[0];
@@ -113,9 +107,7 @@ export default function ServicePaymentsPage() {
       if (!res.ok) {
         throw new Error('Failed to delete subscription');
       }
-      const updated = subscriptions.filter((s) => s.id !== id);
-      setSubscriptions(updated);
-      saveSubscriptions(updated);
+      setSubscriptions(subscriptions.filter((s) => s.id !== id));
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : 'API delete failed';
       console.error('API delete failed:', err);

@@ -19,10 +19,9 @@ import {
 import { Subscription } from '@/types/subscription';
 import { DocMeta } from '@/types/docs';
 import { EngineStats } from '@/types/media';
-import { loadSubscriptions, saveSubscriptions } from '@/lib/storage';
 
 export default function HomePage() {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => loadSubscriptions());
+  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [docs, setDocs] = useState<DocMeta[]>([]);
   const [liveUploadsCount, setLiveUploadsCount] = useState<number | null>(null);
   const [engineStats, setEngineStats] = useState<EngineStats | null>(null);
@@ -37,7 +36,7 @@ export default function HomePage() {
   useEffect(() => {
     fetch('/api/subscriptions')
       .then((res) => res.json())
-      .then((data) => { if (Array.isArray(data) && data.length > 0) { setSubscriptions(data); saveSubscriptions(data); } })
+      .then((data) => { if (Array.isArray(data)) setSubscriptions(data); })
       .catch(() => {});
   }, []);
 
