@@ -4,6 +4,7 @@ export type BillingFrequency =
   | 'Yearly'
   | 'Weekly'
   | 'One-time'
+  | 'Usage-based'
   | 'Custom'
   | 'Free';
 
@@ -14,25 +15,34 @@ export type SubscriptionStatus =
   | 'Trial'
   | 'Pending Review';
 
+export type AutoRenewal = 'On' | 'Off' | 'N/A';
+
+export type ResponsiblePerson = 'Ravi' | 'Deva' | 'Vishnu' | '';
+
 export interface Subscription {
   id: string;
-  purpose: string; // Purpose (Human-readable label, e.g. Hosting or Monitoring)
-  name?: string; // Optional alias for backward compatibility
-  vendor: string; // Vendor/provider (Company or service name)
-  isFree?: boolean; // True if the service operates on a free tier or zero cost
-  amount: string; // Decimal monetary value >= 0 (represented as exact decimal string, e.g. "49.99" or "0.00")
-  currency: string; // ISO 4217 code (USD, EUR, GBP, etc.)
+  vendor: string;        // Service name (Cloudflare, GitHub, etc.)
+  purpose: string;       // What we use it for
+  name?: string;         // Backward-compat alias for purpose
+  plan?: string;         // Free, Pro, or actual plan name
+  isFree?: boolean;
+  amount: string;        // Decimal string, "0.00" for free
+  currency: string;      // ISO 4217
   billingFrequency: BillingFrequency;
-  nextBillingDate?: string; // YYYY-MM-DD in configured business timezone (optional for free tier)
-  startDate?: string; // Date subscription began
-  endDate?: string; // End / cancellation date (required if cancelled)
-  owner?: string; // User/team responsible for reviewing bill
-  ownerEmail?: string; // Owner Email address
-  ownerMobile?: string; // Owner Mobile phone number
-  notificationRecipients?: string; // Defaults to team if blank
-  vendorUrl?: string; // HTTPS URL
-  notes?: string; // Plain text warning against sensitive secrets
+  nextBillingDate?: string;  // YYYY-MM-DD
+  autoRenewal?: AutoRenewal;
   status: SubscriptionStatus;
+  ownerEmail?: string;   // Travingat email that owns the account
+  billingEmail?: string; // Email receiving invoices
+  responsiblePerson?: ResponsiblePerson; // Ravi, Deva, or Vishnu
+  // Legacy fields — kept for backward compat with stored data
+  owner?: string;
+  ownerMobile?: string;
+  notificationRecipients?: string;
+  startDate?: string;
+  endDate?: string;
+  vendorUrl?: string;    // Dashboard URL
+  notes?: string;
   createdAt: string;
   updatedAt: string;
 }

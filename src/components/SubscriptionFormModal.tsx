@@ -1,8 +1,8 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, DollarSign, ShieldAlert, Phone, Mail, Gift } from 'lucide-react';
-import { Subscription, SubscriptionFormData, BillingFrequency, SubscriptionStatus } from '@/types/subscription';
+import { X, ShieldAlert, DollarSign } from 'lucide-react';
+import { Subscription, SubscriptionFormData, BillingFrequency, SubscriptionStatus, AutoRenewal, ResponsiblePerson } from '@/types/subscription';
 import { subscriptionSchema } from '@/lib/validations/subscription';
 
 interface SubscriptionFormModalProps {
@@ -12,169 +12,97 @@ interface SubscriptionFormModalProps {
   subscriptionToEdit?: Subscription | null;
 }
 
-const FREQUENCY_OPTIONS: BillingFrequency[] = [
-  'Monthly',
-  'Quarterly',
-  'Yearly',
-  'Weekly',
-  'One-time',
-  'Custom',
-  'Free',
-];
+const FREQUENCY_OPTIONS: BillingFrequency[] = ['Monthly', 'Yearly', 'Quarterly', 'Weekly', 'One-time', 'Usage-based', 'Custom', 'Free'];
+const STATUS_OPTIONS: SubscriptionStatus[] = ['Active', 'Trial', 'Paused', 'Cancelled', 'Pending Review'];
+const AUTO_RENEWAL_OPTIONS: AutoRenewal[] = ['On', 'Off', 'N/A'];
+const RESPONSIBLE_OPTIONS: ResponsiblePerson[] = ['', 'Ravi', 'Deva', 'Vishnu'];
+const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'SGD'];
 
-const STATUS_OPTIONS: SubscriptionStatus[] = [
-  'Active',
-  'Cancelled',
-  'Paused',
-  'Trial',
-  'Pending Review',
-];
-
-const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'JPY', 'INR', 'CHF', 'SGD'];
-
-// Context tooltip that appears only after hovering for more than 3 seconds
-function DelayedHoverContext({
-  context,
-  children,
-}: {
-  context: string;
-  children: React.ReactNode;
-}) {
-  const [isVisible, setIsVisible] = useState(false);
-  const timerRef = useRef<NodeJS.Timeout | null>(null);
-
-  const handleMouseEnter = () => {
-    timerRef.current = setTimeout(() => {
-      setIsVisible(true);
-    }, 3000); // 3 seconds hover delay
+function emptyForm(): SubscriptionFormData {
+  return {
+    vendor: '', purpose: '', plan: '',
+    isFree: false, amount: '', currency: 'USD',
+    billingFrequency: 'Monthly', nextBillingDate: '',
+    autoRenewal: 'On', status: 'Active',
+    ownerEmail: '', billingEmail: '', responsiblePerson: '',
+    vendorUrl: '', notes: '',
   };
+}
 
-  const handleMouseLeave = () => {
-    if (timerRef.current) {
-      clearTimeout(timerRef.current);
-      timerRef.current = null;
-    }
-    setIsVisible(false);
+function fromSubscription(s: Subscription): SubscriptionFormData {
+  const isFree = Boolean(s.isFree || s.billingFrequency === 'Free' || s.amount === '0' || s.amount === '0.00');
+  return {
+    vendor: s.vendor || '',
+    purpose: s.purpose || s.name || '',
+    name: s.purpose || s.name || '',
+    plan: s.plan || '',
+    isFree,
+    amount: isFree ? '0.00' : (s.amount || ''),
+    currency: s.currency || 'USD',
+    billingFrequency: s.billingFrequency || (isFree ? 'Free' : 'Monthly'),
+    nextBillingDate: s.nextBillingDate || '',
+    autoRenewal: s.autoRenewal || 'On',
+    status: s.status || 'Active',
+    ownerEmail: s.ownerEmail || '',
+    billingEmail: s.billingEmail || '',
+    responsiblePerson: (s.responsiblePerson || '') as ResponsiblePerson,
+    vendorUrl: s.vendorUrl || '',
+    notes: s.notes || '',
   };
+}
 
-  useEffect(() => {
-    return () => {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-      }
-    };
-  }, []);
+const inputCls = (err?: string) =>
+  `w-full px-3 py-2 bg-zinc-950 border ${err ? 'border-red-500/60' : 'border-zinc-800'} rounded-lg text-[13px] text-white placeholder-white/20 focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-700/50 transition-colors`;
 
+const selectCls = `w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-lg text-[13px] text-white focus:outline-none focus:border-zinc-600 focus:ring-1 focus:ring-zinc-700/50 transition-colors`;
+
+function Label({ children, required }: { children: React.ReactNode; required?: boolean }) {
   return (
-    <div
-      className="relative"
-      onMouseEnter={handleMouseEnter}
-      onMouseLeave={handleMouseLeave}
-    >
-      {children}
-      {isVisible && (
-        <div
-          role="tooltip"
-          className="absolute z-50 top-full left-0 mt-1 px-3 py-1.5 bg-zinc-800/95 backdrop-blur-md border border-zinc-700 rounded-md shadow-2xl text-xs text-zinc-100 max-w-sm pointer-events-none flex items-center gap-2 animate-in fade-in duration-200"
-        >
-          <span className="w-1.5 h-1.5 rounded-full bg-zinc-300 shrink-0" />
-          <span>{context}</span>
-        </div>
-      )}
-    </div>
+    <label className="block text-[11px] font-semibold text-white/50 uppercase tracking-[0.08em] mb-1.5">
+      {children}{required && <span className="text-red-400/70 ml-0.5">*</span>}
+    </label>
   );
 }
 
-export default function SubscriptionFormModal({
-  isOpen,
-  onClose,
-  onSave,
-  subscriptionToEdit,
-}: SubscriptionFormModalProps) {
-  const [formData, setFormData] = useState<SubscriptionFormData>(() => {
-    if (subscriptionToEdit) {
-      const isFree = Boolean(
-        subscriptionToEdit.isFree ||
-        subscriptionToEdit.billingFrequency === 'Free' ||
-        subscriptionToEdit.amount === '0' ||
-        subscriptionToEdit.amount === '0.00'
-      );
-      return {
-        purpose: subscriptionToEdit.purpose || subscriptionToEdit.name || '',
-        name: subscriptionToEdit.purpose || subscriptionToEdit.name || '',
-        vendor: subscriptionToEdit.vendor || '',
-        isFree,
-        amount: isFree ? '0.00' : (subscriptionToEdit.amount || ''),
-        currency: subscriptionToEdit.currency || 'USD',
-        billingFrequency: subscriptionToEdit.billingFrequency || (isFree ? 'Free' : 'Monthly'),
-        nextBillingDate: subscriptionToEdit.nextBillingDate || '',
-        startDate: subscriptionToEdit.startDate || '',
-        endDate: subscriptionToEdit.endDate || '',
-        owner: subscriptionToEdit.owner || '',
-        ownerMobile: subscriptionToEdit.ownerMobile || '',
-        ownerEmail: subscriptionToEdit.ownerEmail || '',
-        notificationRecipients: subscriptionToEdit.notificationRecipients || '',
-        vendorUrl: subscriptionToEdit.vendorUrl || '',
-        notes: subscriptionToEdit.notes || '',
-        status: subscriptionToEdit.status || 'Active',
-      };
-    }
-    return {
-      purpose: '',
-      name: '',
-      vendor: '',
-      isFree: false,
-      amount: '',
-      currency: 'USD',
-      billingFrequency: 'Monthly',
-      nextBillingDate: '',
-      startDate: '',
-      endDate: '',
-      owner: '',
-      ownerMobile: '',
-      ownerEmail: '',
-      notificationRecipients: '',
-      vendorUrl: '',
-      notes: '',
-      status: 'Active',
-    };
-  });
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return <p className="text-[11px] text-red-400 mt-1">{msg}</p>;
+}
 
+export default function SubscriptionFormModal({ isOpen, onClose, onSave, subscriptionToEdit }: SubscriptionFormModalProps) {
+  const [form, setForm] = useState<SubscriptionFormData>(() =>
+    subscriptionToEdit ? fromSubscription(subscriptionToEdit) : emptyForm()
+  );
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const formBodyRef = useRef<HTMLDivElement>(null);
-  const configuredTimezone = 'UTC (Business Default)';
+  const [submitting, setSubmitting] = useState(false);
+  const bodyRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === 'Escape' && !isSubmitting) {
-        onClose();
-      }
-    };
-    if (isOpen) {
-      window.addEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'hidden';
-    }
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-      document.body.style.overflow = 'unset';
-    };
-  }, [isOpen, isSubmitting, onClose]);
+    if (!isOpen) return;
+    setForm(subscriptionToEdit ? fromSubscription(subscriptionToEdit) : emptyForm());
+    setErrors({});
+  }, [isOpen, subscriptionToEdit]);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => { if (e.key === 'Escape' && !submitting) onClose(); };
+    if (isOpen) { window.addEventListener('keydown', onKey); document.body.style.overflow = 'hidden'; }
+    return () => { window.removeEventListener('keydown', onKey); document.body.style.overflow = 'unset'; };
+  }, [isOpen, submitting, onClose]);
 
   if (!isOpen) return null;
 
-  const validate = (): boolean => {
-    const result = subscriptionSchema.safeParse(formData);
+  const set = (patch: Partial<SubscriptionFormData>) => setForm((prev) => ({ ...prev, ...patch }));
+
+  const validate = () => {
+    const result = subscriptionSchema.safeParse(form);
     if (!result.success) {
-      const newErrors: Record<string, string> = {};
+      const errs: Record<string, string> = {};
       for (const issue of result.error.issues) {
-        const fieldName = issue.path[0]?.toString() || 'form';
-        if (!newErrors[fieldName]) {
-          newErrors[fieldName] = issue.message;
-        }
+        const k = issue.path[0]?.toString() || 'form';
+        if (!errs[k]) errs[k] = issue.message;
       }
-      setErrors(newErrors);
-      formBodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
+      setErrors(errs);
+      bodyRef.current?.scrollTo({ top: 0, behavior: 'smooth' });
       return false;
     }
     setErrors({});
@@ -184,488 +112,277 @@ export default function SubscriptionFormModal({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!validate()) return;
-
-    const isFree = Boolean(formData.isFree);
-    const num = Number(formData.amount);
-    const normalizedData: SubscriptionFormData = {
-      ...formData,
+    const isFree = Boolean(form.isFree);
+    const num = Number(form.amount);
+    const data: SubscriptionFormData = {
+      ...form,
       isFree,
-      amount: isFree ? '0.00' : (isNaN(num) ? formData.amount : num.toFixed(2)),
-      billingFrequency: isFree && (!formData.billingFrequency || formData.billingFrequency === 'Monthly') ? 'Free' : formData.billingFrequency,
-      nextBillingDate: isFree && !formData.nextBillingDate ? undefined : formData.nextBillingDate,
-      purpose: formData.purpose.trim(),
-      name: formData.purpose.trim(),
-      vendor: formData.vendor.trim(),
-      vendorUrl: formData.vendorUrl?.trim() || undefined,
-      owner: formData.owner?.trim() || undefined,
-      ownerMobile: formData.ownerMobile?.trim() || undefined,
-      ownerEmail: formData.ownerEmail?.trim() || undefined,
-      notificationRecipients: formData.notificationRecipients?.trim() || undefined,
-      notes: formData.notes?.trim() || undefined,
-      startDate: formData.startDate || undefined,
-      endDate: formData.endDate || undefined,
+      amount: isFree ? '0.00' : (isNaN(num) ? form.amount : num.toFixed(2)),
+      billingFrequency: isFree && form.billingFrequency === 'Monthly' ? 'Free' : form.billingFrequency,
+      name: form.vendor,
+      purpose: form.purpose.trim(),
+      vendor: form.vendor.trim(),
     };
-
     try {
-      setIsSubmitting(true);
-      await onSave(normalizedData, subscriptionToEdit?.id);
+      setSubmitting(true);
+      await onSave(data, subscriptionToEdit?.id);
       onClose();
     } catch (err) {
       console.error('Error saving subscription:', err);
     } finally {
-      setIsSubmitting(false);
+      setSubmitting(false);
     }
+  };
+
+  const toggleFree = (checked: boolean) => {
+    set({
+      isFree: checked,
+      amount: checked ? '0.00' : (form.amount === '0.00' ? '' : form.amount),
+      billingFrequency: checked ? 'Free' : (form.billingFrequency === 'Free' ? 'Monthly' : form.billingFrequency),
+      nextBillingDate: checked ? '' : form.nextBillingDate,
+      autoRenewal: checked ? 'N/A' : (form.autoRenewal === 'N/A' ? 'On' : form.autoRenewal),
+    });
+    if (checked) setErrors((prev) => { const c = { ...prev }; delete c.amount; delete c.nextBillingDate; return c; });
   };
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-black/80 backdrop-blur-sm animate-in fade-in duration-150"
-      onClick={(e) => {
-        if (e.target === e.currentTarget && !isSubmitting) {
-          onClose();
-        }
-      }}
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+      onClick={(e) => { if (e.target === e.currentTarget && !submitting) onClose(); }}
     >
       <div
-        className="relative w-full max-w-3xl max-h-[90vh] bg-zinc-900 border border-zinc-800 rounded-lg shadow-2xl text-white flex flex-col overflow-hidden animate-in zoom-in-95 duration-150"
+        className="relative w-full max-w-2xl max-h-[92vh] bg-[#111111] border border-zinc-800/80 rounded-xl shadow-2xl flex flex-col overflow-hidden"
         role="dialog"
         aria-modal="true"
-        aria-labelledby="subscription-form-modal-title"
       >
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 sm:py-5 border-b border-zinc-800 shrink-0 bg-zinc-900">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-zinc-800/60 shrink-0">
           <div>
-            <h2 id="subscription-form-modal-title" className="text-xl font-semibold tracking-tight text-white">
-              {subscriptionToEdit ? 'Edit Subscription Record' : 'Create Subscription Record'}
+            <h2 className="text-[15px] font-semibold text-white">
+              {subscriptionToEdit ? 'Edit Service' : 'Add Service'}
             </h2>
-            <p className="text-xs text-zinc-400 mt-0.5">
-              Service Payments Management • Configured Timezone: {configuredTimezone}
+            <p className="text-[11px] text-white/40 mt-0.5">
+              {subscriptionToEdit ? subscriptionToEdit.vendor : 'Fill in what you know — everything except service name and purpose is optional'}
             </p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded-md transition-colors"
-            aria-label="Close modal"
+            className="p-1.5 text-white/40 hover:text-white hover:bg-zinc-800 rounded-lg transition-colors"
           >
-            <X className="w-5 h-5" />
+            <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Form Body & Footer */}
         <form onSubmit={handleSubmit} className="flex flex-col flex-1 min-h-0 overflow-hidden">
-          <div ref={formBodyRef} className="px-6 py-5 space-y-6 overflow-y-auto flex-1 min-h-0">
-            {/* Section 1: Core Service Info */}
-            <div>
-              <h3 className="text-xs uppercase font-medium tracking-wider text-zinc-400 mb-3">
-                1. Service Identification
-              </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Purpose */}
-              <DelayedHoverContext context="Human-readable label defining the service purpose.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Purpose <span className="text-zinc-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. Hosting, APM Monitoring, or Database"
-                    value={formData.purpose}
-                    onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
-                    className={`w-full px-3 py-2 bg-zinc-950 border ${
-                      errors.purpose ? 'border-zinc-400' : 'border-zinc-800'
-                    } rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors`}
-                  />
-                  {errors.purpose && <p className="text-xs text-zinc-300 mt-1">{errors.purpose}</p>}
-                </div>
-              </DelayedHoverContext>
+          <div ref={bodyRef} className="px-6 py-5 space-y-5 overflow-y-auto flex-1">
 
-              {/* Vendor / provider */}
-              <DelayedHoverContext context="Provider or company name.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Vendor / Provider <span className="text-zinc-400">*</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="Company or service name, e.g. AWS"
-                    value={formData.vendor}
-                    onChange={(e) => setFormData({ ...formData, vendor: e.target.value })}
-                    className={`w-full px-3 py-2 bg-zinc-950 border ${
-                      errors.vendor ? 'border-zinc-400' : 'border-zinc-800'
-                    } rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors`}
-                  />
-                  {errors.vendor && <p className="text-xs text-zinc-300 mt-1">{errors.vendor}</p>}
-                </div>
-              </DelayedHoverContext>
-            </div>
-          </div>
-
-          {/* Section 2: Financial & Schedule */}
-          <div className="pt-2 border-t border-zinc-800">
-            <h3 className="text-xs uppercase font-medium tracking-wider text-zinc-400 mb-3">
-              2. Billing & Schedule
-            </h3>
-
-            {/* Free Tier Switch */}
-            <div className="mb-4 p-3 bg-zinc-950 border border-zinc-800 rounded-md flex items-center justify-between gap-3">
-              <label htmlFor="isFreeService" className="flex items-start gap-3 cursor-pointer select-none">
+            {/* Row 1: Service name + Purpose */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label required>Service name</Label>
                 <input
-                  type="checkbox"
-                  id="isFreeService"
-                  checked={Boolean(formData.isFree)}
-                  onChange={(e) => {
-                    const checked = e.target.checked;
-                    setFormData((prev) => ({
-                      ...prev,
-                      isFree: checked,
-                      amount: checked ? '0.00' : (prev.amount === '0.00' || prev.amount === '0' ? '' : prev.amount),
-                      billingFrequency: checked ? 'Free' : (prev.billingFrequency === 'Free' ? 'Monthly' : prev.billingFrequency),
-                      nextBillingDate: checked ? '' : prev.nextBillingDate,
-                    }));
-                    if (checked) {
-                      setErrors((prev) => {
-                        const copy = { ...prev };
-                        delete copy.amount;
-                        delete copy.nextBillingDate;
-                        return copy;
-                      });
-                    }
-                  }}
-                  className="mt-0.5 w-4 h-4 rounded border-zinc-700 bg-zinc-900 text-white accent-emerald-500 focus:ring-emerald-400 focus:ring-offset-zinc-950 cursor-pointer"
+                  type="text"
+                  placeholder="Cloudflare, GitHub, Claude…"
+                  value={form.vendor}
+                  onChange={(e) => set({ vendor: e.target.value })}
+                  className={inputCls(errors.vendor)}
+                  autoFocus
                 />
-                <div>
-                  <span className="text-xs font-medium text-zinc-200 flex items-center gap-1.5">
-                    <Gift className="w-3.5 h-3.5 text-emerald-400" />
-                    Free Service / Free Tier
-                  </span>
-                  <span className="block text-[11px] text-zinc-500 mt-0.5">
-                    Enable if this service operates on an open-source, community, or zero-cost free plan.
-                  </span>
-                </div>
-              </label>
-              {formData.isFree && (
-                <span className="px-2 py-0.5 text-[11px] font-semibold border border-emerald-500/30 bg-emerald-500/10 text-emerald-400 rounded shrink-0">
-                  Zero Cost ($0.00)
+                <FieldError msg={errors.vendor} />
+              </div>
+              <div>
+                <Label required>Purpose</Label>
+                <input
+                  type="text"
+                  placeholder="What we use it for"
+                  value={form.purpose}
+                  onChange={(e) => set({ purpose: e.target.value })}
+                  className={inputCls(errors.purpose)}
+                />
+                <FieldError msg={errors.purpose} />
+              </div>
+            </div>
+
+            {/* Row 2: Plan + Status */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Plan</Label>
+                <input
+                  type="text"
+                  placeholder="Free, Pro, or the actual plan name"
+                  value={form.plan || ''}
+                  onChange={(e) => set({ plan: e.target.value })}
+                  className={inputCls()}
+                />
+              </div>
+              <div>
+                <Label required>Status</Label>
+                <select value={form.status} onChange={(e) => set({ status: e.target.value as SubscriptionStatus })} className={selectCls}>
+                  {STATUS_OPTIONS.map((s) => <option key={s} value={s} className="bg-zinc-900">{s}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Free service toggle */}
+            <label className="flex items-center gap-3 p-3 bg-zinc-900/50 border border-zinc-800/60 rounded-lg cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={Boolean(form.isFree)}
+                onChange={(e) => toggleFree(e.target.checked)}
+                className="w-4 h-4 rounded border-zinc-700 bg-zinc-900 accent-emerald-500 cursor-pointer"
+              />
+              <div>
+                <span className="text-[13px] font-medium text-white">Free service / free tier</span>
+                <span className="block text-[11px] text-white/40">No billing — zeros out amount and sets auto-renewal to N/A</span>
+              </div>
+              {form.isFree && (
+                <span className="ml-auto text-[11px] font-semibold px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
+                  $0.00
                 </span>
               )}
-            </div>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {/* Amount */}
-              <DelayedHoverContext context={formData.isFree ? "Zero financial cost applies to free tier." : "Decimal value (≥ 0)."}>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Amount {formData.isFree ? <span className="text-emerald-400 text-[11px] font-normal">(Free)</span> : <span className="text-zinc-400">*</span>}
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                      <DollarSign className="w-4 h-4" />
-                    </span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      placeholder={formData.isFree ? "0.00 (Free)" : "Enter amount"}
-                      value={formData.isFree ? "0.00" : formData.amount}
-                      disabled={Boolean(formData.isFree)}
-                      onChange={(e) => setFormData({ ...formData, amount: e.target.value })}
-                      className={`w-full pl-9 pr-3 py-2 bg-zinc-950 border ${
-                        errors.amount ? 'border-zinc-400' : 'border-zinc-800'
-                      } rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors ${
-                        formData.isFree ? 'opacity-60 cursor-not-allowed bg-zinc-900/60' : ''
-                      }`}
-                    />
-                  </div>
-                  {errors.amount && <p className="text-xs text-zinc-300 mt-1">{errors.amount}</p>}
-                </div>
-              </DelayedHoverContext>
-
-              {/* Currency */}
-              <DelayedHoverContext context="Explicit ISO currency code.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Currency (ISO 4217) <span className="text-zinc-400">*</span>
-                  </label>
-                  <select
-                    value={formData.currency}
-                    onChange={(e) => setFormData({ ...formData, currency: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors"
-                  >
-                    {CURRENCY_OPTIONS.map((cur) => (
-                      <option key={cur} value={cur} className="bg-zinc-900 text-white">
-                        {cur}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.currency && <p className="text-xs text-zinc-300 mt-1">{errors.currency}</p>}
-                </div>
-              </DelayedHoverContext>
-
-              {/* Billing frequency */}
-              <DelayedHoverContext context="Payment interval cycle.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Billing Frequency <span className="text-zinc-400">*</span>
-                  </label>
-                  <select
-                    value={formData.billingFrequency}
-                    onChange={(e) =>
-                      setFormData({ ...formData, billingFrequency: e.target.value as BillingFrequency })
-                    }
-                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors"
-                  >
-                    {FREQUENCY_OPTIONS.map((freq) => (
-                      <option key={freq} value={freq} className="bg-zinc-900 text-white">
-                        {freq}
-                      </option>
-                    ))}
-                  </select>
-                  {errors.billingFrequency && (
-                    <p className="text-xs text-zinc-300 mt-1">{errors.billingFrequency}</p>
-                  )}
-                </div>
-              </DelayedHoverContext>
-            </div>
-
-            {/* Dates row */}
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mt-4">
-              {/* Next billing date */}
-              <DelayedHoverContext context={formData.isFree ? "Optional renewal or review date for free services." : `In configured timezone (${configuredTimezone}).`}>
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Next Billing Date {formData.isFree ? <span className="text-zinc-500 text-[11px] font-normal">(Optional for Free)</span> : <span className="text-zinc-400">*</span>}
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.nextBillingDate || ''}
-                    onChange={(e) => setFormData({ ...formData, nextBillingDate: e.target.value })}
-                    className={`w-full px-3 py-2 bg-zinc-950 border ${
-                      errors.nextBillingDate ? 'border-zinc-400' : 'border-zinc-800'
-                    } rounded-md text-sm text-white focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors`}
-                  />
-                  {errors.nextBillingDate && (
-                    <p className="text-xs text-zinc-300 mt-1">{errors.nextBillingDate}</p>
-                  )}
-                </div>
-              </DelayedHoverContext>
-
-              {/* Start date */}
-              <DelayedHoverContext context="Date subscription began.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Start Date <span className="text-zinc-500 text-[11px] font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.startDate}
-                    onChange={(e) => setFormData({ ...formData, startDate: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors"
-                  />
-                </div>
-              </DelayedHoverContext>
-
-              {/* End / cancellation date */}
-              <DelayedHoverContext context="Cancellation expiration date.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    End / Cancellation Date{' '}
-                    {formData.status === 'Cancelled' ? (
-                      <span className="text-zinc-400">* (Required for Cancelled)</span>
-                    ) : (
-                      <span className="text-zinc-500 text-[11px] font-normal">(Optional)</span>
-                    )}
-                  </label>
-                  <input
-                    type="date"
-                    value={formData.endDate}
-                    onChange={(e) => setFormData({ ...formData, endDate: e.target.value })}
-                    className={`w-full px-3 py-2 bg-zinc-950 border ${
-                      errors.endDate ? 'border-zinc-400' : 'border-zinc-800'
-                    } rounded-md text-sm text-white focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors`}
-                  />
-                  {errors.endDate && <p className="text-xs text-zinc-300 mt-1">{errors.endDate}</p>}
-                </div>
-              </DelayedHoverContext>
-            </div>
-          </div>
-
-          {/* Section 3: Status, Ownership & Governance */}
-          <div className="pt-2 border-t border-zinc-800">
-            <h3 className="text-xs uppercase font-medium tracking-wider text-zinc-400 mb-3">
-              3. Status & Ownership
-            </h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Status */}
-              <DelayedHoverContext context="Active by default; allowed: Active, Cancelled, Paused, Trial, Pending Review.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Status <span className="text-zinc-400">*</span>
-                  </label>
-                  <select
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value as SubscriptionStatus })
-                    }
-                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-white focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors"
-                  >
-                    {STATUS_OPTIONS.map((st) => (
-                      <option key={st} value={st} className="bg-zinc-900 text-white">
-                        {st}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </DelayedHoverContext>
-
-              {/* Owner */}
-              <DelayedHoverContext context="User or team responsible for reviewing bill.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Owner <span className="text-zinc-400 text-[11px] font-normal">(Recommended)</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. DevOps Team or Jane Doe"
-                    value={formData.owner}
-                    onChange={(e) => setFormData({ ...formData, owner: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors"
-                  />
-                </div>
-              </DelayedHoverContext>
-            </div>
-
-            {/* Ownership Contact: Mobile & Email */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              {/* Owner Mobile */}
-              <DelayedHoverContext context="Mobile contact number for responsible owner.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Owner Mobile <span className="text-zinc-400 text-[11px] font-normal">(Phone contact)</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                      <Phone className="w-3.5 h-3.5" />
-                    </span>
-                    <input
-                      type="tel"
-                      placeholder="Enter mobile number"
-                      value={formData.ownerMobile}
-                      onChange={(e) => setFormData({ ...formData, ownerMobile: e.target.value })}
-                      className={`w-full pl-9 pr-3 py-2 bg-zinc-950 border ${
-                        errors.ownerMobile ? 'border-zinc-400' : 'border-zinc-800'
-                      } rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors`}
-                    />
-                  </div>
-                  {errors.ownerMobile && <p className="text-xs text-zinc-300 mt-1">{errors.ownerMobile}</p>}
-                </div>
-              </DelayedHoverContext>
-
-              {/* Owner Email */}
-              <DelayedHoverContext context="Direct email address of responsible owner.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Owner Email <span className="text-zinc-500 text-[11px] font-normal">(Contact)</span>
-                  </label>
-                  <div className="relative">
-                    <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-zinc-500">
-                      <Mail className="w-3.5 h-3.5" />
-                    </span>
-                    <input
-                      type="email"
-                      placeholder="owner@company.com"
-                      value={formData.ownerEmail}
-                      onChange={(e) => setFormData({ ...formData, ownerEmail: e.target.value })}
-                      className={`w-full pl-9 pr-3 py-2 bg-zinc-950 border ${
-                        errors.ownerEmail ? 'border-zinc-400' : 'border-zinc-800'
-                      } rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors`}
-                    />
-                  </div>
-                  {errors.ownerEmail && <p className="text-xs text-zinc-300 mt-1">{errors.ownerEmail}</p>}
-                </div>
-              </DelayedHoverContext>
-            </div>
-
-            {/* Notification recipients & Vendor URL */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
-              <DelayedHoverContext context="Defaults to configured team recipients if blank.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Notification Recipients{' '}
-                    <span className="text-zinc-500 text-[11px] font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="text"
-                    placeholder="e.g. devops-billing@company.com"
-                    value={formData.notificationRecipients}
-                    onChange={(e) => setFormData({ ...formData, notificationRecipients: e.target.value })}
-                    className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors"
-                  />
-                </div>
-              </DelayedHoverContext>
-
-              <DelayedHoverContext context="HTTPS URL where service is managed.">
-                <div>
-                  <label className="block text-xs font-medium text-zinc-200 mb-1">
-                    Vendor URL <span className="text-zinc-500 text-[11px] font-normal">(Optional)</span>
-                  </label>
-                  <input
-                    type="url"
-                    placeholder="https://dashboard.vendor.com"
-                    value={formData.vendorUrl}
-                    onChange={(e) => setFormData({ ...formData, vendorUrl: e.target.value })}
-                    className={`w-full px-3 py-2 bg-zinc-950 border ${
-                      errors.vendorUrl ? 'border-zinc-400' : 'border-zinc-800'
-                    } rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors`}
-                  />
-                  {errors.vendorUrl && <p className="text-xs text-zinc-300 mt-1">{errors.vendorUrl}</p>}
-                </div>
-              </DelayedHoverContext>
-            </div>
-          </div>
-
-          {/* Section 4: Notes & Security Warning */}
-          <div className="pt-2 border-t border-zinc-800">
-            <label className="block text-xs font-medium text-zinc-200 mb-1">
-              Notes <span className="text-zinc-500 text-[11px] font-normal">(Optional)</span>
             </label>
-            <textarea
-              rows={3}
-              placeholder="Enter general context, plan details, or contract numbers..."
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              className="w-full px-3 py-2 bg-zinc-950 border border-zinc-800 rounded-md text-sm text-white placeholder-zinc-500 focus:outline-none focus:border-zinc-400 focus:ring-1 focus:ring-zinc-400 transition-colors"
-            />
-            {/* Warning rule */}
-            <div className="flex items-center gap-2 mt-2 px-3 py-2 bg-zinc-950/80 border border-zinc-800 rounded text-xs text-zinc-300">
-              <ShieldAlert className="w-4 h-4 text-zinc-400 shrink-0" />
-              <span>
-                <strong>Warning:</strong> Plain text only. Do not enter passwords, API secrets, or credit card details.
-              </span>
+
+            {/* Row 3: Amount + Currency + Billing frequency */}
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <Label required={!form.isFree}>Amount</Label>
+                <div className="relative">
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/30">
+                    <DollarSign className="w-3.5 h-3.5" />
+                  </span>
+                  <input
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    placeholder={form.isFree ? '0.00' : 'Amount'}
+                    value={form.isFree ? '0.00' : form.amount}
+                    disabled={Boolean(form.isFree)}
+                    onChange={(e) => set({ amount: e.target.value })}
+                    className={`${inputCls(errors.amount)} pl-9 ${form.isFree ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  />
+                </div>
+                <FieldError msg={errors.amount} />
+              </div>
+              <div>
+                <Label required>Currency</Label>
+                <select value={form.currency} onChange={(e) => set({ currency: e.target.value })} className={selectCls}>
+                  {CURRENCY_OPTIONS.map((c) => <option key={c} value={c} className="bg-zinc-900">{c}</option>)}
+                </select>
+              </div>
+              <div>
+                <Label required>Billing frequency</Label>
+                <select value={form.billingFrequency} onChange={(e) => set({ billingFrequency: e.target.value as BillingFrequency })} className={selectCls}>
+                  {FREQUENCY_OPTIONS.map((f) => <option key={f} value={f} className="bg-zinc-900">{f}</option>)}
+                </select>
+              </div>
             </div>
-          </div>
+
+            {/* Row 4: Next billing date + Auto-renewal */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label required={!form.isFree}>Next billing / renewal date</Label>
+                <input
+                  type="date"
+                  value={form.nextBillingDate || ''}
+                  onChange={(e) => set({ nextBillingDate: e.target.value })}
+                  className={inputCls(errors.nextBillingDate)}
+                />
+                <FieldError msg={errors.nextBillingDate} />
+              </div>
+              <div>
+                <Label>Auto-renewal</Label>
+                <select value={form.autoRenewal || 'On'} onChange={(e) => set({ autoRenewal: e.target.value as AutoRenewal })} className={selectCls}>
+                  {AUTO_RENEWAL_OPTIONS.map((a) => <option key={a} value={a} className="bg-zinc-900">{a}</option>)}
+                </select>
+              </div>
+            </div>
+
+            {/* Row 5: Account email + Billing email */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Account / owner email</Label>
+                <input
+                  type="email"
+                  placeholder="Travingat email that owns the account"
+                  value={form.ownerEmail || ''}
+                  onChange={(e) => set({ ownerEmail: e.target.value })}
+                  className={inputCls(errors.ownerEmail)}
+                />
+                <FieldError msg={errors.ownerEmail} />
+              </div>
+              <div>
+                <Label>Billing email</Label>
+                <input
+                  type="email"
+                  placeholder="Email receiving invoices"
+                  value={form.billingEmail || ''}
+                  onChange={(e) => set({ billingEmail: e.target.value })}
+                  className={inputCls(errors.billingEmail)}
+                />
+                <FieldError msg={errors.billingEmail} />
+              </div>
+            </div>
+
+            {/* Row 6: Responsible person + Dashboard URL */}
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <Label>Responsible person</Label>
+                <select value={form.responsiblePerson || ''} onChange={(e) => set({ responsiblePerson: e.target.value as ResponsiblePerson })} className={selectCls}>
+                  {RESPONSIBLE_OPTIONS.map((p) => (
+                    <option key={p} value={p} className="bg-zinc-900">{p || '— Select person —'}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <Label>Dashboard URL</Label>
+                <input
+                  type="url"
+                  placeholder="https://dashboard.vendor.com"
+                  value={form.vendorUrl || ''}
+                  onChange={(e) => set({ vendorUrl: e.target.value })}
+                  className={inputCls(errors.vendorUrl)}
+                />
+                <FieldError msg={errors.vendorUrl} />
+              </div>
+            </div>
+
+            {/* Notes */}
+            <div>
+              <Label>Notes</Label>
+              <textarea
+                rows={3}
+                placeholder="Pending account transfer, limits, or other details…"
+                value={form.notes || ''}
+                onChange={(e) => set({ notes: e.target.value })}
+                className={inputCls()}
+              />
+            </div>
+
+            {/* Security warning */}
+            <div className="flex items-start gap-2 px-3 py-2.5 bg-amber-500/5 border border-amber-500/20 rounded-lg text-[11px] text-amber-200/80">
+              <ShieldAlert className="w-3.5 h-3.5 text-amber-400 shrink-0 mt-0.5" />
+              <span>Plain text only — do not enter passwords, API keys, or card numbers.</span>
+            </div>
+
           </div>
 
-          {/* Footer buttons (Pinned) */}
-          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800 bg-zinc-900/95 backdrop-blur-sm shrink-0">
+          {/* Footer */}
+          <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-zinc-800/60 bg-[#111111] shrink-0">
             <button
               type="button"
               onClick={onClose}
-              disabled={isSubmitting}
-              className="px-4 py-2 text-sm font-medium text-zinc-300 bg-zinc-800 hover:bg-zinc-700 hover:text-white rounded-md transition-colors disabled:opacity-50"
+              disabled={submitting}
+              className="px-4 py-2 text-[13px] font-medium text-white/60 bg-zinc-800/60 hover:bg-zinc-800 hover:text-white rounded-lg transition-colors disabled:opacity-50"
             >
               Cancel
             </button>
             <button
               type="submit"
-              disabled={isSubmitting}
-              className="px-5 py-2 text-sm font-medium text-zinc-950 bg-white hover:bg-zinc-200 rounded-md transition-colors disabled:opacity-50"
+              disabled={submitting}
+              className="px-5 py-2 text-[13px] font-semibold text-zinc-950 bg-white hover:bg-zinc-100 rounded-lg transition-colors disabled:opacity-50"
             >
-              {isSubmitting
-                ? 'Saving...'
-                : subscriptionToEdit
-                ? 'Save Changes'
-                : 'Create Record'}
+              {submitting ? 'Saving…' : subscriptionToEdit ? 'Save changes' : 'Add service'}
             </button>
           </div>
         </form>

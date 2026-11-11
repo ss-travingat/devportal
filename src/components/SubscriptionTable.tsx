@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useMemo } from 'react';
-import { Search, Filter, Edit2, Trash2, Eye, ExternalLink, Calendar, Plus, Phone, Mail } from 'lucide-react';
+import { Search, Filter, Edit2, Trash2, Eye, ExternalLink, Calendar, Plus } from 'lucide-react';
 import { Subscription } from '@/types/subscription';
 
 interface SubscriptionTableProps {
@@ -98,7 +98,7 @@ export default function SubscriptionTable({
             className="inline-flex items-center gap-1.5 px-3.5 py-1.5 text-xs font-medium text-zinc-950 bg-white hover:bg-zinc-200 rounded-md transition-colors shrink-0"
           >
             <Plus className="w-3.5 h-3.5" />
-            Add Record
+            Add Service
           </button>
         </div>
       </div>
@@ -106,46 +106,49 @@ export default function SubscriptionTable({
       {/* Table Container */}
       <div className="overflow-x-auto border border-zinc-800 rounded-lg bg-zinc-900/50">
         <table className="w-full text-left text-xs">
-          <thead className="bg-zinc-900/90 border-b border-zinc-800 text-zinc-400 uppercase tracking-wider font-medium text-[11px]">
+          <thead className="bg-zinc-900/90 border-b border-zinc-800 text-white/30 uppercase tracking-wider font-semibold text-[10px]">
             <tr>
-              <th className="px-4 py-3">Purpose & Vendor</th>
+              <th className="px-4 py-3">Service</th>
+              <th className="px-4 py-3">Plan</th>
               <th className="px-4 py-3">Amount</th>
-              <th className="px-4 py-3">Frequency</th>
-              <th className="px-4 py-3">Next Billing Date</th>
+              <th className="px-4 py-3">Next Billing</th>
+              <th className="px-4 py-3">Auto-renewal</th>
               <th className="px-4 py-3">Status</th>
-              <th className="px-4 py-3">Owner & Contact</th>
+              <th className="px-4 py-3">Responsible</th>
               <th className="px-4 py-3 text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-zinc-800 text-zinc-200">
+          <tbody className="divide-y divide-zinc-800 text-white">
             {filtered.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-12 text-center text-zinc-500">
-                  <p className="text-sm">No subscription records found.</p>
-                  <p className="text-xs mt-1 text-zinc-600">
-                    Try adjusting your search criteria or click &ldquo;Add Record&rdquo; to create a new one.
+                <td colSpan={8} className="px-4 py-12 text-center text-white/30">
+                  <p className="text-[13px]">No services found.</p>
+                  <p className="text-[11px] mt-1 text-white/20">
+                    Try adjusting your filters or click &ldquo;Add Service&rdquo; to create one.
                   </p>
                 </td>
               </tr>
             ) : (
-              filtered.map((item) => (
+              filtered.map((item) => {
+                const isFree = item.isFree || item.billingFrequency === 'Free' || Number(item.amount) === 0;
+                return (
                 <tr
                   key={item.id}
-                  className="hover:bg-zinc-800/40 transition-colors group cursor-pointer"
+                  className="hover:bg-zinc-800/40 transition-colors cursor-pointer"
                   onClick={() => onView(item)}
                 >
-                  {/* Purpose & Vendor */}
+                  {/* Service */}
                   <td className="px-4 py-3.5">
-                    <div className="font-medium text-white">{item.purpose || item.name}</div>
-                    <div className="text-zinc-500 text-[11px] flex items-center gap-1.5 mt-0.5">
-                      <span>{item.vendor}</span>
+                    <div className="font-medium text-white text-[13px]">{item.vendor}</div>
+                    <div className="text-white/40 text-[11px] mt-0.5 flex items-center gap-1.5">
+                      <span>{item.purpose || item.name}</span>
                       {item.vendorUrl && (
                         <a
                           href={item.vendorUrl}
                           target="_blank"
                           rel="noopener noreferrer"
                           onClick={(e) => e.stopPropagation()}
-                          className="hover:text-zinc-300"
+                          className="hover:text-white/70"
                         >
                           <ExternalLink className="w-2.5 h-2.5 inline" />
                         </a>
@@ -153,62 +156,54 @@ export default function SubscriptionTable({
                     </div>
                   </td>
 
+                  {/* Plan */}
+                  <td className="px-4 py-3.5 text-[12px] text-white/60">
+                    {item.plan || <span className="text-white/20 italic text-[11px]">—</span>}
+                  </td>
+
                   {/* Amount */}
-                  <td className="px-4 py-3.5 font-mono text-zinc-100">
-                    {item.isFree || item.billingFrequency === 'Free' || Number(item.amount) === 0 ? (
-                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-                        Free Tier
+                  <td className="px-4 py-3.5 font-mono text-[12px]">
+                    {isFree ? (
+                      <span className="inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                        Free
                       </span>
                     ) : (
-                      <span>{item.currency} {Number(item.amount).toFixed(2)}</span>
+                      <span className="text-white">{item.currency} {Number(item.amount).toFixed(2)}</span>
                     )}
                   </td>
 
-                  {/* Frequency */}
-                  <td className="px-4 py-3.5 text-zinc-300">
-                    {item.isFree || item.billingFrequency === 'Free' ? (
-                      <span className="text-emerald-400/90 text-xs font-medium">Free</span>
-                    ) : (
-                      item.billingFrequency
-                    )}
-                  </td>
-
-                  {/* Next Billing Date */}
-                  <td className="px-4 py-3.5 text-zinc-300">
+                  {/* Next Billing */}
+                  <td className="px-4 py-3.5 text-[12px] text-white/60">
                     {item.nextBillingDate ? (
                       <div className="flex items-center gap-1.5">
-                        <Calendar className="w-3.5 h-3.5 text-zinc-500" />
+                        <Calendar className="w-3 h-3 text-white/30" />
                         <span>{item.nextBillingDate}</span>
                       </div>
                     ) : (
-                      <span className="text-zinc-500 italic text-[11px]">N/A (Free)</span>
+                      <span className="text-white/20 italic text-[11px]">N/A</span>
                     )}
+                  </td>
+
+                  {/* Auto-renewal */}
+                  <td className="px-4 py-3.5 text-[12px] text-white/60">
+                    {item.autoRenewal || (isFree ? 'N/A' : '—')}
                   </td>
 
                   {/* Status */}
                   <td className="px-4 py-3.5">
-                    <span className="inline-block px-2 py-0.5 text-[11px] font-medium border border-zinc-700 bg-zinc-800 text-zinc-200 rounded">
+                    <span className={`inline-block px-2 py-0.5 text-[10px] font-semibold border rounded ${
+                      item.status === 'Active' ? 'border-emerald-500/30 bg-emerald-500/10 text-emerald-400' :
+                      item.status === 'Cancelled' ? 'border-red-500/30 bg-red-500/10 text-red-400' :
+                      item.status === 'Trial' ? 'border-blue-500/30 bg-blue-500/10 text-blue-400' :
+                      'border-zinc-700 bg-zinc-800 text-white/60'
+                    }`}>
                       {item.status}
                     </span>
                   </td>
 
-                  {/* Owner & Contact info */}
-                  <td className="px-4 py-3.5 text-zinc-300">
-                    <div className="font-medium text-zinc-200">
-                      {item.owner || <span className="text-zinc-600 italic">Unassigned</span>}
-                    </div>
-                    {item.ownerMobile && (
-                      <div className="text-zinc-400 text-[11px] flex items-center gap-1 mt-0.5">
-                        <Phone className="w-2.5 h-2.5 text-zinc-500 shrink-0" />
-                        <span>{item.ownerMobile}</span>
-                      </div>
-                    )}
-                    {item.ownerEmail && (
-                      <div className="text-zinc-400 text-[11px] flex items-center gap-1 mt-0.5">
-                        <Mail className="w-2.5 h-2.5 text-zinc-500 shrink-0" />
-                        <span>{item.ownerEmail}</span>
-                      </div>
-                    )}
+                  {/* Responsible */}
+                  <td className="px-4 py-3.5 text-[12px] text-white/60">
+                    {item.responsiblePerson || item.owner || <span className="text-white/20 italic text-[11px]">—</span>}
                   </td>
 
                   {/* Actions */}
@@ -216,44 +211,40 @@ export default function SubscriptionTable({
                     <div className="inline-flex items-center gap-1.5">
                       <button
                         onClick={() => onView(item)}
-                        className="p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+                        className="p-1 text-white/30 hover:text-white hover:bg-zinc-800 rounded transition-colors"
                         title="View details"
                       >
                         <Eye className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => onEdit(item)}
-                        className="p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
-                        title="Edit record"
+                        className="p-1 text-white/30 hover:text-white hover:bg-zinc-800 rounded transition-colors"
+                        title="Edit"
                       >
                         <Edit2 className="w-3.5 h-3.5" />
                       </button>
                       <button
                         onClick={() => {
-                          if (confirm(`Are you sure you want to delete "${item.purpose || item.name}"?`)) {
-                            onDelete(item.id);
-                          }
+                          if (confirm(`Delete "${item.vendor}"?`)) onDelete(item.id);
                         }}
-                        className="p-1 text-zinc-400 hover:text-white hover:bg-zinc-800 rounded transition-colors"
-                        title="Delete record"
+                        className="p-1 text-white/30 hover:text-red-400 hover:bg-zinc-800 rounded transition-colors"
+                        title="Delete"
                       >
                         <Trash2 className="w-3.5 h-3.5" />
                       </button>
                     </div>
                   </td>
                 </tr>
-              ))
+                );
+              })
             )}
           </tbody>
         </table>
       </div>
 
       {/* Summary caption */}
-      <div className="flex items-center justify-between text-xs text-zinc-500 px-1">
-        <span>
-          Showing {filtered.length} of {subscriptions.length} records
-        </span>
-        <span>Configured Timezone: UTC</span>
+      <div className="flex items-center justify-between text-[11px] text-white/30 px-1">
+        <span>Showing {filtered.length} of {subscriptions.length} services</span>
       </div>
     </div>
   );
