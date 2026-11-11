@@ -12,6 +12,21 @@ import MermaidBlock from '@/components/MermaidBlock';
 // schema already allows everything this viewer's `code` component needs
 // (className, for syntax-highlighting/mermaid language detection).
 
+function slugify(children: React.ReactNode): string {
+  const text =
+    typeof children === 'string'
+      ? children
+      : Array.isArray(children)
+        ? (children as React.ReactNode[]).filter((c) => typeof c === 'string').join('')
+        : '';
+  return text
+    .toLowerCase()
+    .replace(/[^\w\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
+}
+
 interface MarkdownViewerProps {
   content: string;
 }
@@ -50,24 +65,24 @@ export default function MarkdownViewer({ content }: MarkdownViewerProps) {
             );
           },
 
-          // Headings
+          // Headings — IDs enable TOC anchor links
           h1: ({ children }) => (
-            <h1 className="text-2xl font-bold text-white mt-8 mb-4 pb-3 border-b border-zinc-800">
+            <h1 id={slugify(children)} className="text-2xl font-bold text-white mt-8 mb-4 pb-3 border-b border-zinc-800 scroll-mt-6">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 className="text-xl font-semibold text-white mt-7 mb-3 pb-2 border-b border-zinc-800/60">
+            <h2 id={slugify(children)} className="text-xl font-semibold text-white mt-7 mb-3 pb-2 border-b border-zinc-800/60 scroll-mt-6">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 className="text-base font-semibold text-zinc-100 mt-6 mb-2">
+            <h3 id={slugify(children)} className="text-base font-semibold text-zinc-100 mt-6 mb-2 scroll-mt-6">
               {children}
             </h3>
           ),
           h4: ({ children }) => (
-            <h4 className="text-sm font-semibold text-zinc-200 mt-5 mb-2">
+            <h4 id={slugify(children)} className="text-sm font-semibold text-zinc-200 mt-5 mb-2 scroll-mt-6">
               {children}
             </h4>
           ),
