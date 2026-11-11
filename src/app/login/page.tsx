@@ -74,7 +74,7 @@ function LoginForm() {
         </div>
         <div>
           <h1 className="text-[20px] font-bold tracking-tight text-white">Developer Portal</h1>
-          <p className="text-[12px] text-zinc-500 mt-1">
+          <p className="text-[12px] text-white/50 mt-1">
             Travingat internal infrastructure dashboard
           </p>
         </div>
@@ -84,7 +84,7 @@ function LoginForm() {
       <div className="rounded-2xl border border-zinc-800/80 bg-zinc-900/40 backdrop-blur-sm p-6 shadow-2xl space-y-5">
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="space-y-1.5">
-            <label className="text-[12px] font-medium text-zinc-400 flex items-center justify-between">
+            <label className="text-[12px] font-medium text-white/60 flex items-center justify-between">
               <span>Admin Password</span>
            </label>
 
@@ -102,7 +102,7 @@ function LoginForm() {
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
                 tabIndex={-1}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-600 hover:text-zinc-300 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-white/30 hover:text-white/70 transition-colors"
               >
                 {showPassword ? <EyeOff className="w-3.5 h-3.5" /> : <Eye className="w-3.5 h-3.5" />}
               </button>
@@ -161,7 +161,7 @@ export default function LoginPage() {
       />
       <Suspense
         fallback={
-          <div className="text-zinc-600 text-[13px] animate-pulse">Loading...</div>
+          <div className="text-white/30 text-[13px] animate-pulse">Loading...</div>
         }
       >
         <LoginForm />

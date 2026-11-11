@@ -85,7 +85,7 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-24 text-zinc-600 text-sm">
+      <div className="flex items-center justify-center py-24 text-white/30 text-sm">
         <span className="animate-pulse">Loading document...</span>
       </div>
     );
@@ -94,8 +94,8 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
   if (error) {
     return (
       <div className="px-8 py-8 max-w-[800px]">
-        <div className="p-5 border border-zinc-800 rounded-xl bg-zinc-950 text-sm text-zinc-400">
-          <p className="font-medium text-zinc-200 mb-1">Failed to load document</p>
+        <div className="p-5 border border-zinc-800 rounded-xl bg-zinc-950 text-sm text-white/60">
+          <p className="font-medium text-white mb-1">Failed to load document</p>
           <p className="font-mono text-xs">{error}</p>
           <Link href="/tech-docs" className="mt-4 inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white transition-colors">
             ← Back to docs
@@ -113,7 +113,7 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
       {toc.length > 0 && (
         <aside className="hidden lg:flex flex-col w-[220px] shrink-0 border-r border-zinc-800/40">
           <div className="sticky top-[52px] p-5 overflow-y-auto max-h-[calc(100vh-52px)]">
-            <p className="text-[10px] font-semibold tracking-[0.1em] text-zinc-600 uppercase mb-3">
+            <p className="text-[10px] font-semibold tracking-[0.1em] text-white/30 uppercase mb-3">
               On this page
             </p>
             <nav className="flex flex-col gap-0.5">
@@ -130,8 +130,8 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
                     level === 3 ? 'pl-3' : ''
                   } ${
                     activeId === id
-                      ? 'text-zinc-100 font-medium'
-                      : 'text-zinc-500 hover:text-zinc-300'
+                      ? 'text-white font-medium'
+                      : 'text-white/40 hover:text-white'
                   }`}
                 >
                   {text}
@@ -147,18 +147,18 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
         <div className="max-w-[760px]">
           {/* Doc header */}
           <div className="mb-8 pb-6 border-b border-zinc-800/60">
-            <div className="flex items-center gap-1.5 text-[11px] text-zinc-600 mb-3">
-              <Link href="/tech-docs" className="hover:text-zinc-400 transition-colors">
+            <div className="flex items-center gap-1.5 text-[11px] text-white/30 mb-3">
+              <Link href="/tech-docs" className="hover:text-white/60 transition-colors">
                 Tech Docs
               </Link>
               <ChevronRight className="w-3 h-3" />
               {doc.category && (
                 <>
-                  <span className="text-zinc-500">{doc.category}</span>
+                  <span className="text-white/40">{doc.category}</span>
                   <ChevronRight className="w-3 h-3" />
                 </>
               )}
-              <span className="text-zinc-400">{doc.title}</span>
+              <span className="text-white/60">{doc.title}</span>
             </div>
 
             <h1 className="text-[26px] font-bold tracking-tight text-white mb-2">
@@ -166,16 +166,16 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
             </h1>
 
             {doc.description && (
-              <p className="text-[14px] text-zinc-400 leading-relaxed mb-4">
+              <p className="text-[14px] text-white/60 leading-relaxed mb-4">
                 {doc.description}
               </p>
             )}
 
-            <div className="flex flex-wrap items-center gap-4 text-[12px] text-zinc-600">
+            <div className="flex flex-wrap items-center gap-4 text-[12px] text-white/40">
               {doc.category && (
                 <span className="flex items-center gap-1.5">
                   <Tag className="w-3 h-3" />
-                  <span className="text-zinc-500">{doc.category}</span>
+                  <span className="text-white/50">{doc.category}</span>
                 </span>
               )}
               {doc.author && (
@@ -200,12 +200,12 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
           <div className="mt-12 pt-6 border-t border-zinc-800/40 flex items-center justify-between">
             <Link
               href="/tech-docs"
-              className="inline-flex items-center gap-1.5 text-[12px] text-zinc-500 hover:text-white transition-colors"
+              className="inline-flex items-center gap-1.5 text-[12px] text-white/40 hover:text-white transition-colors"
             >
               ← All Documents
             </Link>
             {doc.updatedAt && (
-              <span className="text-[11px] text-zinc-700">
+              <span className="text-[11px] text-white/20">
                 Last updated {formatDate(doc.updatedAt)}
               </span>
             )}

@@ -57,7 +57,7 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
     <div className="space-y-8">
       {/* Search */}
       <div className="relative max-w-md">
-        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-zinc-600 pointer-events-none" />
+        <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-white/30 pointer-events-none" />
         <input
           type="text"
           value={search}
@@ -68,7 +68,7 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
       </div>
 
       {filtered.length === 0 ? (
-        <div className="py-16 text-center text-zinc-500 text-[13px]">
+        <div className="py-16 text-center text-white/40 text-[13px]">
           No documents found for &quot;{search}&quot;
         </div>
       ) : (
@@ -76,11 +76,11 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
           <div key={category}>
             {/* Category header */}
             <div className="flex items-center gap-3 mb-3">
-              <span className="text-[11px] font-semibold tracking-[0.1em] text-zinc-500 uppercase">
+              <span className="text-[11px] font-semibold tracking-[0.1em] text-white/40 uppercase">
                 {category}
               </span>
               <div className="flex-1 h-px bg-zinc-800/80" />
-              <span className="text-[11px] text-zinc-700">{categoryDocs.length}</span>
+              <span className="text-[11px] text-white/20">{categoryDocs.length}</span>
             </div>
 
             {/* Doc rows */}
@@ -99,7 +99,7 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
                       </span>
                     </div>
                     {doc.description && (
-                      <p className="text-[12px] text-zinc-500 leading-relaxed line-clamp-1">
+                      <p className="text-[12px] text-white/50 leading-relaxed line-clamp-1">
                         {doc.description}
                       </p>
                     )}
@@ -107,12 +107,12 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
 
                   <div className="flex items-center gap-4 shrink-0 mt-0.5">
                     {doc.updatedAt && (
-                      <span className="hidden sm:flex items-center gap-1.5 text-[11px] text-zinc-600">
+                      <span className="hidden sm:flex items-center gap-1.5 text-[11px] text-white/30">
                         <Clock className="w-3 h-3" />
                         {formatDate(doc.updatedAt)}
                       </span>
                     )}
-                    <ArrowRight className="w-3.5 h-3.5 text-zinc-700 group-hover:text-zinc-400 group-hover:translate-x-0.5 transition-all" />
+                    <ArrowRight className="w-3.5 h-3.5 text-white/20 group-hover:text-white/60 group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </Link>
               ))}
