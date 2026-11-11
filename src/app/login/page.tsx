@@ -86,8 +86,7 @@ function LoginForm() {
           <div className="space-y-1.5">
             <label className="text-[12px] font-medium text-zinc-400 flex items-center justify-between">
               <span>Admin Password</span>
-              <span className="text-[10px] text-zinc-600 font-mono">shared session</span>
-            </label>
+           </label>
 
             <div className="relative">
               <input
@@ -144,14 +143,6 @@ function LoginForm() {
             )}
           </button>
         </form>
-
-        <div className="pt-1 border-t border-zinc-800/60 flex items-center justify-between text-[11px] text-zinc-600">
-          <span className="flex items-center gap-1.5">
-            <Lock className="w-2.5 h-2.5" />
-            HTTPOnly cookie session
-          </span>
-          <span className="font-mono">devportal.travingat.com</span>
-        </div>
       </div>
     </div>
   );
