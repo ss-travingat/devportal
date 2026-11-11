@@ -40,9 +40,15 @@ export default function RootLayout({
           <Navbar />
         </Suspense>
         <Providers>
-          <MainShell>
-            {children}
-          </MainShell>
+          <Suspense fallback={
+            <main className="flex-1 ml-[220px] min-h-screen bg-[#121212] flex flex-col overflow-x-hidden">
+              {children}
+            </main>
+          }>
+            <MainShell>
+              {children}
+            </MainShell>
+          </Suspense>
         </Providers>
       </body>
     </html>
