@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "@/components/Navbar";
-import PageHeader from "@/components/PageHeader";
+import MainShell from "@/components/MainShell";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
@@ -40,10 +40,9 @@ export default function RootLayout({
           <Navbar />
         </Suspense>
         <Providers>
-          <main className="flex-1 ml-[220px] min-h-screen bg-[#121212] flex flex-col overflow-x-hidden">
-            <PageHeader />
+          <MainShell>
             {children}
-          </main>
+          </MainShell>
         </Providers>
       </body>
     </html>
