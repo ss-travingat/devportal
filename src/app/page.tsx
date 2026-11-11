@@ -11,6 +11,10 @@ import {
   ExternalLink,
   Film,
   Cpu,
+  TrendingDown,
+  Upload,
+  Layers,
+  DollarSign,
 } from 'lucide-react';
 import { Subscription } from '@/types/subscription';
 import { DocMeta } from '@/types/docs';
@@ -20,54 +24,35 @@ import { loadSubscriptions, saveSubscriptions } from '@/lib/storage';
 export default function HomePage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>(() => loadSubscriptions());
   const [docs, setDocs] = useState<DocMeta[]>([]);
-  const [liveUploadsCount, setLiveUploadsCount] = useState<number>(0);
+  const [liveUploadsCount, setLiveUploadsCount] = useState<number | null>(null);
   const [engineStats, setEngineStats] = useState<EngineStats | null>(null);
 
-  // Load engine stats
   useEffect(() => {
     fetch('/api/media-engine/stats')
       .then((res) => res.json())
-      .then((data) => {
-        if (data && typeof data.total_media === 'number') {
-          setEngineStats(data);
-        }
-      })
+      .then((data) => { if (data && typeof data.total_media === 'number') setEngineStats(data); })
       .catch(() => {});
   }, []);
 
-  // Load subscriptions from JSON via API on mount
   useEffect(() => {
     fetch('/api/subscriptions')
       .then((res) => res.json())
-      .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setSubscriptions(data);
-          saveSubscriptions(data);
-        }
-      })
-      .catch((err) => console.error('Failed to load from subscriptions.json:', err));
+      .then((data) => { if (Array.isArray(data) && data.length > 0) { setSubscriptions(data); saveSubscriptions(data); } })
+      .catch(() => {});
   }, []);
 
-  // Load docs list on mount
   useEffect(() => {
     fetch('/api/docs')
       .then((res) => res.json())
-      .then((data: DocMeta[]) => {
-        if (Array.isArray(data)) setDocs(data);
-      })
-      .catch((err) => console.error('Failed to load docs list:', err));
+      .then((data: DocMeta[]) => { if (Array.isArray(data)) setDocs(data); })
+      .catch(() => {});
   }, []);
 
-  // Load live uploads count
   useEffect(() => {
     fetch('/api/media-engine/uploads?filter=live')
       .then((res) => res.json())
-      .then((data) => {
-        if (typeof data.total === 'number') {
-          setLiveUploadsCount(data.total);
-        }
-      })
-      .catch(() => { });
+      .then((data) => { if (typeof data.total === 'number') setLiveUploadsCount(data.total); })
+      .catch(() => {});
   }, []);
 
   const activeCount = subscriptions.filter((s) => s.status === 'Active').length;
@@ -76,240 +61,263 @@ export default function HomePage() {
     .reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
 
   return (
-    <div className="max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold tracking-tight text-white">Developer Portal</h1>
-        <p className="text-sm text-zinc-400 mt-1">
-          Centralized management for developer infrastructure, media pipelines, and cloud services.
+    <div className="px-8 py-8 max-w-[1200px] w-full">
+
+      {/* Page header */}
+      <div className="mb-8">
+        <h1 className="text-[22px] font-bold tracking-tight text-white">Developer Control Plane</h1>
+        <p className="text-[13px] text-zinc-500 mt-1">
+          Infrastructure, media pipeline, and cloud services for Travingat.
         </p>
       </div>
 
-      {/* Cards grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Metric tiles */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+        <div className="bg-zinc-900/50 border border-zinc-800/60 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.08em]">Media Assets</span>
+            <Layers className="w-3.5 h-3.5 text-zinc-600" />
+          </div>
+          <div className="text-[28px] font-bold text-white leading-none font-mono">
+            {engineStats ? engineStats.total_media.toLocaleString() : '—'}
+          </div>
+          <div className="text-[11px] text-zinc-600 mt-1.5">Total processed</div>
+        </div>
 
-        {/* Card 0: Production Media Engine (Console & Queues) */}
+        <div className="bg-zinc-900/50 border border-zinc-800/60 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.08em]">Compression</span>
+            <TrendingDown className="w-3.5 h-3.5 text-emerald-600" />
+          </div>
+          <div className="text-[28px] font-bold text-emerald-400 leading-none font-mono">
+            {engineStats ? `${engineStats.savings_pct}%` : '—'}
+          </div>
+          <div className="text-[11px] text-zinc-600 mt-1.5">Average savings</div>
+        </div>
+
+        <div className="bg-zinc-900/50 border border-zinc-800/60 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.08em]">Live Uploads</span>
+            <Upload className="w-3.5 h-3.5 text-zinc-600" />
+          </div>
+          <div className="text-[28px] font-bold text-white leading-none font-mono">
+            {liveUploadsCount !== null ? liveUploadsCount.toLocaleString() : '—'}
+          </div>
+          <div className="text-[11px] text-zinc-600 mt-1.5">15-min retention</div>
+        </div>
+
+        <div className="bg-zinc-900/50 border border-zinc-800/60 rounded-xl p-5">
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-[11px] font-semibold text-zinc-500 uppercase tracking-[0.08em]">Monthly Spend</span>
+            <DollarSign className="w-3.5 h-3.5 text-zinc-600" />
+          </div>
+          <div className="text-[28px] font-bold text-white leading-none font-mono">
+            {totalAmount > 0
+              ? `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
+              : '—'}
+          </div>
+          <div className="text-[11px] text-zinc-600 mt-1.5">{activeCount} active services</div>
+        </div>
+      </div>
+
+      {/* Section label */}
+      <div className="mb-4">
+        <span className="text-[11px] font-semibold text-zinc-600 uppercase tracking-[0.1em]">Modules</span>
+      </div>
+
+      {/* Module cards */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+
+        {/* Media Engine — featured */}
         <Link
           href="/media-engine"
-          className="group relative p-6 bg-gradient-to-b from-blue-950/20 to-zinc-900 hover:from-blue-950/30 hover:to-zinc-850 border border-blue-500/30 hover:border-blue-400/50 rounded-lg cursor-pointer transition-all duration-200 shadow-xl flex flex-col justify-between"
+          className="group relative p-5 bg-[#0f0d1a] hover:bg-[#120f1f] border border-[#5a45f9]/20 hover:border-[#5a45f9]/40 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div className="p-2.5 bg-blue-500/15 border border-blue-500/30 rounded-md">
-                <Cpu className="w-5 h-5 text-blue-400" />
+              <div className="p-2 bg-[#5a45f9]/10 border border-[#5a45f9]/20 rounded-lg">
+                <Cpu className="w-4 h-4 text-[#7c6cfa]" />
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-blue-500/30 bg-blue-500/10 text-blue-300 font-semibold">
-                  {engineStats ? `${engineStats.total_media} Assets` : 'Online'}
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-[#5a45f9]/20 bg-[#5a45f9]/10 text-[#9d8dfb] font-semibold">
+                  {engineStats ? `${engineStats.total_media.toLocaleString()} Assets` : 'Online'}
                 </span>
               </div>
             </div>
 
-            <div className="flex items-center gap-2">
-              <h2 className="text-lg font-semibold text-white group-hover:text-blue-200 transition-colors">
-                Media Engine
-              </h2>
-              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded bg-blue-500/20 text-blue-300 border border-blue-500/30">
+            <div className="flex items-center gap-2 mb-1.5">
+              <h2 className="text-[15px] font-semibold text-white">Media Engine</h2>
+              <span className="text-[9px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded bg-[#5a45f9]/20 text-[#9d8dfb] border border-[#5a45f9]/20">
                 Core
               </span>
             </div>
-            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-              Real-time image & video optimization pipeline, Celery background queues, multi-resolution thumbnails, compression benchmarks, and recycle bin management.
+            <p className="text-[12px] text-zinc-500 leading-relaxed">
+              Real-time image &amp; video optimization pipeline, Celery queues, multi-resolution thumbnails, and recycle bin management.
             </p>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs">
-            <span className="text-zinc-500">
+          <div className="mt-5 pt-4 border-t border-zinc-800/60 flex items-center justify-between text-[12px]">
+            <span className="text-zinc-600">
               Savings:{' '}
-              <strong className="text-emerald-400 font-mono font-medium">
-                {engineStats ? `${engineStats.savings_pct}%` : 'High Ratio'}
-              </strong>
+              <strong className="text-emerald-400 font-mono">{engineStats ? `${engineStats.savings_pct}%` : '—'}</strong>
             </span>
-            <div className="inline-flex items-center gap-1 font-semibold text-blue-400 group-hover:translate-x-0.5 transition-transform">
-              <span>Open Console</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </div>
+            <span className="inline-flex items-center gap-1 font-medium text-[#9d8dfb] group-hover:translate-x-0.5 transition-transform">
+              Open Console <ArrowRight className="w-3.5 h-3.5" />
+            </span>
           </div>
         </Link>
 
-        {/* Card 1: Media Portal & Optimizer */}
+        {/* Media Portal */}
         <Link
           href="/media-portal"
-          className="group relative p-6 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 rounded-lg cursor-pointer transition-all duration-200 shadow-lg flex flex-col justify-between"
+          className="group relative p-5 bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-800/60 hover:border-zinc-700/80 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div className="p-2.5 bg-zinc-800 border border-zinc-700 rounded-md">
-                <Film className="w-5 h-5 text-white" />
+              <div className="p-2 bg-zinc-800/60 border border-zinc-700/40 rounded-lg">
+                <Film className="w-4 h-4 text-zinc-300" />
               </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-zinc-700 bg-zinc-800/80 text-zinc-300">
-                {liveUploadsCount} Live
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-zinc-700/40 bg-zinc-800/40 text-zinc-400">
+                {liveUploadsCount !== null ? `${liveUploadsCount} Live` : 'Live'}
               </span>
             </div>
 
-            <h2 className="text-lg font-semibold text-white group-hover:text-zinc-100 transition-colors">
-              Media Portal
-            </h2>
-            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-              Upload and optimize images, configure thumbnail creation, monitor 15-minute live retention tags, and download individual photos or packaged ZIPs.
+            <h2 className="text-[15px] font-semibold text-white mb-1.5">Media Portal</h2>
+            <p className="text-[12px] text-zinc-500 leading-relaxed">
+              Upload and optimize images, configure thumbnails, monitor live retention tags, and download photos or packaged ZIPs.
             </p>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs">
-            <span className="text-zinc-500 font-mono text-[11px]">
-              Media Engine
+          <div className="mt-5 pt-4 border-t border-zinc-800/60 flex items-center justify-end text-[12px]">
+            <span className="inline-flex items-center gap-1 font-medium text-zinc-400 group-hover:text-white group-hover:translate-x-0.5 transition-all">
+              Open Portal <ArrowRight className="w-3.5 h-3.5" />
             </span>
-            <div className="inline-flex items-center gap-1 font-medium text-white group-hover:translate-x-0.5 transition-transform">
-              <span>Open Media</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </div>
           </div>
         </Link>
 
-        {/* Card 2: Service Payments */}
+        {/* Service Payments */}
         <Link
           href="/service-payments"
-          className="group relative p-6 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 rounded-lg cursor-pointer transition-all duration-200 shadow-lg flex flex-col justify-between"
+          className="group relative p-5 bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-800/60 hover:border-zinc-700/80 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div className="p-2.5 bg-zinc-800 border border-zinc-700 rounded-md">
-                <CreditCard className="w-5 h-5 text-white" />
+              <div className="p-2 bg-zinc-800/60 border border-zinc-700/40 rounded-lg">
+                <CreditCard className="w-4 h-4 text-zinc-300" />
               </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-zinc-700 bg-zinc-800/80 text-zinc-300">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-zinc-700/40 bg-zinc-800/40 text-zinc-400">
                 {activeCount} Active
               </span>
             </div>
 
-            <h2 className="text-lg font-semibold text-white group-hover:text-zinc-100 transition-colors">
-              Service Payments
-            </h2>
-            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-              Track, manage, and configure recurring cloud vendor subscriptions, infrastructure
-              billing cycles, owners, and cancellation timelines.
+            <h2 className="text-[15px] font-semibold text-white mb-1.5">Service Payments</h2>
+            <p className="text-[12px] text-zinc-500 leading-relaxed">
+              Track recurring cloud vendor subscriptions, infrastructure billing cycles, owners, and cancellation timelines.
             </p>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs">
-            <span className="text-zinc-500">
-              Est. Active Monthly:{' '}
-              <strong className="text-zinc-200 font-mono">
-                ${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2 })}
-              </strong>
+          <div className="mt-5 pt-4 border-t border-zinc-800/60 flex items-center justify-between text-[12px]">
+            <span className="text-zinc-600 font-mono">
+              ${totalAmount > 0 ? totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}/mo
             </span>
-            <div className="inline-flex items-center gap-1 font-medium text-white group-hover:translate-x-0.5 transition-transform">
-              <span>View Services</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </div>
+            <span className="inline-flex items-center gap-1 font-medium text-zinc-400 group-hover:text-white group-hover:translate-x-0.5 transition-all">
+              View Services <ArrowRight className="w-3.5 h-3.5" />
+            </span>
           </div>
         </Link>
 
-        {/* Card 3: Tech Documentation */}
+        {/* Tech Documentation */}
         <Link
           href="/tech-docs"
-          className="group relative p-6 bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 hover:border-zinc-700 rounded-lg cursor-pointer transition-all duration-200 shadow-lg flex flex-col justify-between"
+          className="group relative p-5 bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-800/60 hover:border-zinc-700/80 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div className="p-2.5 bg-zinc-800 border border-zinc-700 rounded-md">
-                <BookOpen className="w-5 h-5 text-white" />
+              <div className="p-2 bg-zinc-800/60 border border-zinc-700/40 rounded-lg">
+                <BookOpen className="w-4 h-4 text-zinc-300" />
               </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-zinc-700 bg-zinc-800/80 text-zinc-300">
-                {docs.length} Docs
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-zinc-700/40 bg-zinc-800/40 text-zinc-400">
+                {docs.length > 0 ? `${docs.length} Docs` : 'Docs'}
               </span>
             </div>
 
-            <h2 className="text-lg font-semibold text-white group-hover:text-zinc-100 transition-colors">
-              Tech Documentation
-            </h2>
-            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-              Browse internal technical guides, architecture diagrams, and API references with
-              live Mermaid diagram rendering.
+            <h2 className="text-[15px] font-semibold text-white mb-1.5">Tech Documentation</h2>
+            <p className="text-[12px] text-zinc-500 leading-relaxed">
+              Internal architecture guides, data model references, runbooks, and API documentation with live Mermaid diagrams.
             </p>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-zinc-800/80 flex items-center justify-end text-xs">
-            <div className="inline-flex items-center gap-1 font-medium text-white group-hover:translate-x-0.5 transition-transform">
-              <span>View Docs</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </div>
+          <div className="mt-5 pt-4 border-t border-zinc-800/60 flex items-center justify-end text-[12px]">
+            <span className="inline-flex items-center gap-1 font-medium text-zinc-400 group-hover:text-white group-hover:translate-x-0.5 transition-all">
+              View Docs <ArrowRight className="w-3.5 h-3.5" />
+            </span>
           </div>
         </Link>
 
-        {/* Card 4: Services Status */}
+        {/* Services Status */}
         <a
           href="https://status.travingat.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="group relative p-6 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg cursor-pointer transition-all duration-200 shadow-lg flex flex-col justify-between"
+          className="group relative p-5 bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-800/60 hover:border-zinc-700/80 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div className="p-2.5 bg-zinc-800 border border-zinc-700 rounded-md">
-                <Activity className="w-5 h-5 text-white" />
+              <div className="p-2 bg-zinc-800/60 border border-zinc-700/40 rounded-lg">
+                <Activity className="w-4 h-4 text-zinc-300" />
               </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-zinc-700 bg-zinc-800/80 text-zinc-300 flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                Live Status
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-zinc-700/40 bg-zinc-800/40 text-zinc-400 flex items-center gap-1.5">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                Live
               </span>
             </div>
 
-            <h2 className="text-lg font-semibold text-white group-hover:text-zinc-100 transition-colors">
-              Services Status
-            </h2>
-            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-              Real-time platform health, operational uptime checks, maintenance schedules,
-              and active incident updates across all microservices.
+            <h2 className="text-[15px] font-semibold text-white mb-1.5">Services Status</h2>
+            <p className="text-[12px] text-zinc-500 leading-relaxed">
+              Real-time platform health, uptime checks, maintenance schedules, and active incident updates across all services.
             </p>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs">
-            <span className="text-zinc-500 font-mono text-[11px]">
-              status.travingat.com
+          <div className="mt-5 pt-4 border-t border-zinc-800/60 flex items-center justify-between text-[12px]">
+            <span className="text-zinc-700 font-mono text-[11px]">status.travingat.com</span>
+            <span className="inline-flex items-center gap-1 font-medium text-zinc-400 group-hover:text-white group-hover:translate-x-0.5 transition-all">
+              Open <ExternalLink className="w-3 h-3" />
             </span>
-            <div className="inline-flex items-center gap-1 font-medium text-white group-hover:translate-x-0.5 transition-transform">
-              <span>Open Status</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </div>
           </div>
         </a>
 
-        {/* Card 5: Observability */}
+        {/* Observability */}
         <a
           href="https://grafana.travingat.com"
           target="_blank"
           rel="noopener noreferrer"
-          className="group relative p-6 bg-zinc-900 border border-zinc-800 hover:border-zinc-700 rounded-lg cursor-pointer transition-all duration-200 shadow-lg flex flex-col justify-between"
+          className="group relative p-5 bg-zinc-900/40 hover:bg-zinc-900/70 border border-zinc-800/60 hover:border-zinc-700/80 rounded-xl cursor-pointer transition-all duration-200 flex flex-col justify-between"
         >
           <div>
             <div className="flex items-center justify-between mb-4">
-              <div className="p-2.5 bg-zinc-800 border border-zinc-700 rounded-md">
-                <Gauge className="w-5 h-5 text-white" />
+              <div className="p-2 bg-zinc-800/60 border border-zinc-700/40 rounded-lg">
+                <Gauge className="w-4 h-4 text-zinc-300" />
               </div>
-              <span className="text-[11px] font-mono px-2 py-0.5 rounded border border-zinc-700 bg-zinc-800/80 text-zinc-300">
+              <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-zinc-700/40 bg-zinc-800/40 text-zinc-400">
                 Grafana
               </span>
             </div>
 
-            <h2 className="text-lg font-semibold text-white group-hover:text-zinc-100 transition-colors">
-              Observability
-            </h2>
-            <p className="text-xs text-zinc-400 mt-2 leading-relaxed">
-              Interactive Grafana performance dashboards, system resource metrics, query throughput,
-              and infrastructure telemetry.
+            <h2 className="text-[15px] font-semibold text-white mb-1.5">Observability</h2>
+            <p className="text-[12px] text-zinc-500 leading-relaxed">
+              Performance dashboards, system resource metrics, query throughput, and infrastructure telemetry.
             </p>
           </div>
 
-          <div className="mt-6 pt-4 border-t border-zinc-800/80 flex items-center justify-between text-xs">
-            <span className="text-zinc-500 font-mono text-[11px]">
-              grafana.travingat.com
+          <div className="mt-5 pt-4 border-t border-zinc-800/60 flex items-center justify-between text-[12px]">
+            <span className="text-zinc-700 font-mono text-[11px]">grafana.travingat.com</span>
+            <span className="inline-flex items-center gap-1 font-medium text-zinc-400 group-hover:text-white group-hover:translate-x-0.5 transition-all">
+              Open <ExternalLink className="w-3 h-3" />
             </span>
-            <div className="inline-flex items-center gap-1 font-medium text-white group-hover:translate-x-0.5 transition-transform">
-              <span>Open Grafana</span>
-              <ExternalLink className="w-3.5 h-3.5" />
-            </div>
           </div>
         </a>
+
       </div>
     </div>
   );

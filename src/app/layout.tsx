@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import Navbar from "@/components/Navbar";
+import PageHeader from "@/components/PageHeader";
 import Providers from "@/components/Providers";
 import "./globals.css";
 
@@ -30,16 +31,17 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-[#121212]`}
     >
-      <body className="min-h-full bg-[#121212] text-white flex flex-col font-sans selection:bg-zinc-700 selection:text-white">
+      <body className="min-h-screen bg-[#121212] text-white flex font-sans selection:bg-zinc-700 selection:text-white">
         <Suspense
           fallback={
-            <header className="sticky top-0 z-40 w-full border-b border-zinc-800 bg-[#121212]/95 backdrop-blur h-16" />
+            <div className="fixed left-0 top-0 bottom-0 w-[220px] bg-[#0d0d0d] border-r border-zinc-800/60 z-40" />
           }
         >
           <Navbar />
         </Suspense>
         <Providers>
-          <main className="flex-1 w-full bg-[#121212] flex flex-col">
+          <main className="flex-1 ml-[220px] min-h-screen bg-[#121212] flex flex-col overflow-x-hidden">
+            <PageHeader />
             {children}
           </main>
         </Providers>
