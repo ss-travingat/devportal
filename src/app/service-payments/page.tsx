@@ -62,14 +62,14 @@ export default function ServicePaymentsPage() {
         });
         const resData = await res.json();
         if (res.ok && resData.subscription) {
-          setSubscriptions(subscriptions.map((s) => (s.id === editId ? resData.subscription : s)));
+          setSubscriptions((prev) => prev.map((s) => (s.id === editId ? resData.subscription : s)));
           return;
-        } else if (!res.ok && resData.errors) {
-          const firstErr = Object.values(resData.errors)[0];
-          throw new Error(String(firstErr) || resData.message || 'Failed to update record');
         }
+        // All failure paths — including 404, 500, 503, or ok-but-no-subscription
+        const firstErr = resData.errors ? String(Object.values(resData.errors)[0]) : undefined;
+        throw new Error(firstErr || resData.message || `Save failed (${res.status})`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'API update failed';
+        const msg = err instanceof Error ? err.message : 'Update failed';
         console.error('API update failed:', err);
         setErrorMessage(msg);
         throw err;
@@ -83,14 +83,13 @@ export default function ServicePaymentsPage() {
         });
         const resData = await res.json();
         if (res.ok && resData.subscription) {
-          setSubscriptions([resData.subscription, ...subscriptions]);
+          setSubscriptions((prev) => [resData.subscription, ...prev]);
           return;
-        } else if (!res.ok && resData.errors) {
-          const firstErr = Object.values(resData.errors)[0];
-          throw new Error(String(firstErr) || resData.message || 'Failed to create record');
         }
+        const firstErr = resData.errors ? String(Object.values(resData.errors)[0]) : undefined;
+        throw new Error(firstErr || resData.message || `Create failed (${res.status})`);
       } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : 'API create failed';
+        const msg = err instanceof Error ? err.message : 'Create failed';
         console.error('API create failed:', err);
         setErrorMessage(msg);
         throw err;
@@ -104,12 +103,13 @@ export default function ServicePaymentsPage() {
       const res = await fetch(`/api/subscriptions?id=${encodeURIComponent(id)}`, {
         method: 'DELETE',
       });
+      const resData = await res.json();
       if (!res.ok) {
-        throw new Error('Failed to delete subscription');
+        throw new Error(resData.message || `Delete failed (${res.status})`);
       }
-      setSubscriptions(subscriptions.filter((s) => s.id !== id));
+      setSubscriptions((prev) => prev.filter((s) => s.id !== id));
     } catch (err: unknown) {
-      const msg = err instanceof Error ? err.message : 'API delete failed';
+      const msg = err instanceof Error ? err.message : 'Delete failed';
       console.error('API delete failed:', err);
       setErrorMessage(msg);
     }

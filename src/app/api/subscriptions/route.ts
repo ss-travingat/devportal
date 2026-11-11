@@ -57,7 +57,7 @@ export async function GET(request: NextRequest) {
   return NextResponse.json(fallback);
 }
 
-// POST: Add new subscription via Django backend (with local sync)
+// POST: Add new subscription via Django backend
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
@@ -80,48 +80,42 @@ export async function POST(request: NextRequest) {
 
     const validData = validationResult.data;
 
-    // Call Django Backend
+    let res: Response;
+    let resData: Record<string, unknown>;
     try {
-      const res = await backendFetch('/api/internal/devportal/service-payments', {
+      res = await backendFetch('/api/internal/devportal/service-payments', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(validData),
       });
-      const resData = await res.json();
-      if (res.ok && resData.subscription) {
-        const subscriptions = readSubscriptionsFromFile();
-        subscriptions.unshift(resData.subscription);
-        writeSubscriptionsToFile(subscriptions);
-        return NextResponse.json({ success: true, subscription: resData.subscription }, { status: 201 });
-      } else if (!res.ok && resData.errors) {
-        return NextResponse.json(
-          { message: resData.message || 'Validation failed', errors: resData.errors },
-          { status: res.status }
-        );
-      }
+      resData = await res.json();
     } catch (backendErr) {
-      console.warn('Backend service payments POST failed, using local fallback:', backendErr);
+      console.error('Backend service payments POST unreachable:', backendErr);
+      return NextResponse.json(
+        { message: 'Could not reach backend server. Check server logs.', errors: { form: 'Server unavailable' } },
+        { status: 503 }
+      );
     }
 
-    // Local fallback
-    const subscriptions = readSubscriptionsFromFile();
-    const timestamp = new Date().toISOString();
-    const newRecord: Subscription = {
-      ...validData,
-      amount: validData.amount || '0.00',
-      id: `sub-${Date.now()}`,
-      createdAt: timestamp,
-      updatedAt: timestamp,
-    };
+    if (res.ok && resData.subscription) {
+      const subscriptions = readSubscriptionsFromFile();
+      subscriptions.unshift(resData.subscription as Subscription);
+      writeSubscriptionsToFile(subscriptions);
+      return NextResponse.json({ success: true, subscription: resData.subscription }, { status: 201 });
+    }
 
-    subscriptions.unshift(newRecord);
-    writeSubscriptionsToFile(subscriptions);
-
-    return NextResponse.json({ success: true, subscription: newRecord }, { status: 201 });
+    // Propagate all backend errors — no local fallback for writes
+    return NextResponse.json(
+      {
+        message: (resData.message as string) || `Backend error (${res.status})`,
+        errors: (resData.errors as Record<string, string>) || { form: (resData.message as string) || 'Server error' },
+      },
+      { status: res.status }
+    );
   } catch (error) {
     console.error('Error creating subscription:', error);
     return NextResponse.json(
-      { message: 'Internal server error while creating subscription' },
+      { message: 'Internal server error while creating subscription', errors: { form: 'Internal error' } },
       { status: 500 }
     );
   }
@@ -155,57 +149,48 @@ export async function PUT(request: NextRequest) {
 
     const validData = validationResult.data;
 
-    // Call Django Backend
+    let res: Response;
+    let resData: Record<string, unknown>;
     try {
-      const res = await backendFetch(`/api/internal/devportal/service-payments/${id}`, {
+      res = await backendFetch(`/api/internal/devportal/service-payments/${id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(validData),
       });
-      const resData = await res.json();
-      if (res.ok && resData.subscription) {
-        const subscriptions = readSubscriptionsFromFile();
-        const index = subscriptions.findIndex((s) => s.id === id);
-        if (index !== -1) {
-          subscriptions[index] = resData.subscription;
-        } else {
-          subscriptions.unshift(resData.subscription);
-        }
-        writeSubscriptionsToFile(subscriptions);
-        return NextResponse.json({ success: true, subscription: resData.subscription });
-      } else if (!res.ok && resData.errors) {
-        return NextResponse.json(
-          { message: resData.message || 'Validation failed', errors: resData.errors },
-          { status: res.status }
-        );
-      }
+      resData = await res.json();
     } catch (backendErr) {
-      console.warn('Backend service payments PUT failed, using local fallback:', backendErr);
+      console.error('Backend service payments PUT unreachable:', backendErr);
+      return NextResponse.json(
+        { message: 'Could not reach backend server. Check server logs.', errors: { form: 'Server unavailable' } },
+        { status: 503 }
+      );
     }
 
-    // Local fallback
-    const subscriptions = readSubscriptionsFromFile();
-    const index = subscriptions.findIndex((s) => s.id === id);
-
-    if (index === -1) {
-      return NextResponse.json({ message: 'Subscription not found' }, { status: 404 });
+    if (res.ok && resData.subscription) {
+      // Update local file cache on success
+      const subscriptions = readSubscriptionsFromFile();
+      const index = subscriptions.findIndex((s) => s.id === id);
+      if (index !== -1) {
+        subscriptions[index] = resData.subscription as Subscription;
+      } else {
+        subscriptions.unshift(resData.subscription as Subscription);
+      }
+      writeSubscriptionsToFile(subscriptions);
+      return NextResponse.json({ success: true, subscription: resData.subscription });
     }
 
-    const updatedRecord: Subscription = {
-      ...subscriptions[index],
-      ...validData,
-      amount: validData.amount || '0.00',
-      updatedAt: new Date().toISOString(),
-    };
-
-    subscriptions[index] = updatedRecord;
-    writeSubscriptionsToFile(subscriptions);
-
-    return NextResponse.json({ success: true, subscription: updatedRecord });
+    // Propagate all backend errors — no local fallback for writes
+    return NextResponse.json(
+      {
+        message: (resData.message as string) || `Backend error (${res.status})`,
+        errors: (resData.errors as Record<string, string>) || { form: (resData.message as string) || 'Server error' },
+      },
+      { status: res.status }
+    );
   } catch (error) {
     console.error('Error updating subscription:', error);
     return NextResponse.json(
-      { message: 'Internal server error while updating subscription' },
+      { message: 'Internal server error while updating subscription', errors: { form: 'Internal error' } },
       { status: 500 }
     );
   }
@@ -221,15 +206,29 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ message: 'Missing record id' }, { status: 400 });
     }
 
-    // Call Django Backend
+    let res: Response;
+    let resData: Record<string, unknown>;
     try {
-      await backendFetch(`/api/internal/devportal/service-payments/${id}`, {
+      res = await backendFetch(`/api/internal/devportal/service-payments/${id}`, {
         method: 'DELETE',
       });
+      resData = await res.json();
     } catch (backendErr) {
-      console.warn('Backend service payments DELETE failed, removing locally:', backendErr);
+      console.error('Backend service payments DELETE unreachable:', backendErr);
+      return NextResponse.json(
+        { message: 'Could not reach backend server.' },
+        { status: 503 }
+      );
     }
 
+    if (!res.ok) {
+      return NextResponse.json(
+        { message: (resData.message as string) || `Backend error (${res.status})` },
+        { status: res.status }
+      );
+    }
+
+    // Remove from local file cache on success
     const subscriptions = readSubscriptionsFromFile();
     const filtered = subscriptions.filter((s) => s.id !== id);
     writeSubscriptionsToFile(filtered);
