@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useRef, useEffect } from 'react';
-import { X, ShieldAlert, DollarSign } from 'lucide-react';
+import { X, ShieldAlert } from 'lucide-react';
 import { Subscription, SubscriptionFormData, BillingFrequency, SubscriptionStatus, AutoRenewal, ResponsiblePerson } from '@/types/subscription';
 import { subscriptionSchema } from '@/lib/validations/subscription';
 
@@ -16,7 +16,7 @@ const FREQUENCY_OPTIONS: BillingFrequency[] = ['Monthly', 'Yearly', 'Quarterly',
 const STATUS_OPTIONS: SubscriptionStatus[] = ['Active', 'Trial', 'Paused', 'Cancelled', 'Pending Review'];
 const AUTO_RENEWAL_OPTIONS: AutoRenewal[] = ['On', 'Off', 'N/A'];
 const RESPONSIBLE_OPTIONS: ResponsiblePerson[] = ['', 'Ravi', 'Deva', 'Vishnu'];
-const CURRENCY_OPTIONS = ['USD', 'EUR', 'GBP', 'CAD', 'AUD', 'INR', 'SGD'];
+const CURRENCY_OPTIONS = ['USD', 'INR'];
 
 function emptyForm(): SubscriptionFormData {
   return {
@@ -238,7 +238,7 @@ export default function SubscriptionFormModal({ isOpen, onClose, onSave, subscri
               </div>
               {form.isFree && (
                 <span className="ml-auto text-[11px] font-semibold px-2 py-0.5 rounded border border-emerald-500/30 bg-emerald-500/10 text-emerald-400">
-                  $0.00
+                  {form.currency === 'INR' ? '₹' : '$'}0.00
                 </span>
               )}
             </label>
@@ -248,8 +248,8 @@ export default function SubscriptionFormModal({ isOpen, onClose, onSave, subscri
               <div>
                 <Label required={!form.isFree}>Amount</Label>
                 <div className="relative">
-                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/30">
-                    <DollarSign className="w-3.5 h-3.5" />
+                  <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-white/30 text-[13px] font-medium">
+                    {form.currency === 'INR' ? '₹' : '$'}
                   </span>
                   <input
                     type="number"
