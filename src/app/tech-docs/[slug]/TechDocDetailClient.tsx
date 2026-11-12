@@ -2,7 +2,7 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Clock, User, Tag, ArrowRight } from 'lucide-react';
+import { Clock, User, Tag, ArrowLeft, ArrowRight } from 'lucide-react';
 import { DocDetail, DocMeta } from '@/types/docs';
 import MarkdownViewer from '@/components/MarkdownViewer';
 import { groupDocsByCategory, readingOrder } from '@/lib/docs-order';
@@ -95,10 +95,13 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
   const body = useMemo(() => (content ? stripLeadingTitle(content, title) : ''), [content, title]);
   const toc = useMemo(() => (body ? extractTOC(body) : []), [body]);
   const groupedDocs = useMemo(() => groupDocsByCategory(allDocs), [allDocs]);
-  const nextDoc = useMemo(() => {
+  const { prevDoc, nextDoc } = useMemo(() => {
     const ordered = readingOrder(allDocs);
     const i = ordered.findIndex((d) => d.slug === slug);
-    return i >= 0 && i < ordered.length - 1 ? ordered[i + 1] : null;
+    return {
+      prevDoc: i > 0 ? ordered[i - 1] : null,
+      nextDoc: i >= 0 && i < ordered.length - 1 ? ordered[i + 1] : null,
+    };
   }, [allDocs, slug]);
 
   // Track active heading via IntersectionObserver
@@ -245,25 +248,46 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
             {/* Content */}
             <MarkdownViewer content={body} />
 
-            {/* Next document */}
-            {nextDoc && (
-              <Link
-                href={`/tech-docs/${nextDoc.slug}`}
-                className="group mt-12 flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700 px-5 py-4 transition-colors"
-              >
-                <div className="min-w-0">
-                  <p className="text-[11px] uppercase tracking-widest text-white/30">Next</p>
-                  <p className="mt-0.5 text-[14px] font-medium text-white truncate">{nextDoc.title}</p>
-                  {nextDoc.category && (
-                    <p className="text-[12px] text-white/40 truncate">{nextDoc.category}</p>
-                  )}
-                </div>
-                <ArrowRight className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
-              </Link>
+            {/* Previous / Next document */}
+            {(prevDoc || nextDoc) && (
+              <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {prevDoc && (
+                  <Link
+                    href={`/tech-docs/${prevDoc.slug}`}
+                    className="group flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700 px-5 py-4 transition-colors"
+                  >
+                    <ArrowLeft className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
+                    <div className="min-w-0">
+                      <p className="text-[11px] uppercase tracking-widest text-white/30">Previous</p>
+                      <p className="mt-0.5 text-[14px] font-medium text-white truncate">{prevDoc.title}</p>
+                      {prevDoc.category && (
+                        <p className="text-[12px] text-white/40 truncate">{prevDoc.category}</p>
+                      )}
+                    </div>
+                  </Link>
+                )}
+                {nextDoc && (
+                  <Link
+                    href={`/tech-docs/${nextDoc.slug}`}
+                    className={`group flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700 px-5 py-4 transition-colors${
+                      prevDoc ? '' : ' sm:col-start-2'
+                    }`}
+                  >
+                    <div className="min-w-0 text-right flex-1">
+                      <p className="text-[11px] uppercase tracking-widest text-white/30">Next</p>
+                      <p className="mt-0.5 text-[14px] font-medium text-white truncate">{nextDoc.title}</p>
+                      {nextDoc.category && (
+                        <p className="text-[12px] text-white/40 truncate">{nextDoc.category}</p>
+                      )}
+                    </div>
+                    <ArrowRight className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                  </Link>
+                )}
+              </div>
             )}
 
             {/* Footer */}
-            <div className={`${nextDoc ? 'mt-6' : 'mt-12'} pt-6 border-t border-zinc-800/40 flex items-center justify-between`}>
+            <div className={`${prevDoc || nextDoc ? 'mt-6' : 'mt-12'} pt-6 border-t border-zinc-800/40 flex items-center justify-between`}>
               <Link
                 href="/tech-docs"
                 className="inline-flex items-center gap-1.5 text-[12px] text-white/40 hover:text-white transition-colors"

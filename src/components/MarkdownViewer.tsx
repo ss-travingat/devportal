@@ -67,22 +67,22 @@ export default function MarkdownViewer({ content }: MarkdownViewerProps) {
 
           // Headings — IDs enable TOC anchor links
           h1: ({ children }) => (
-            <h1 id={slugify(children)} className="text-2xl font-bold text-white mt-8 mb-4 pb-3 border-b border-zinc-800 scroll-mt-6">
+            <h1 id={slugify(children)} className="text-2xl font-bold text-white mt-8 mb-4 pb-3 border-b border-zinc-800 scroll-mt-20">
               {children}
             </h1>
           ),
           h2: ({ children }) => (
-            <h2 id={slugify(children)} className="text-xl font-semibold text-white mt-7 mb-3 pb-2 border-b border-zinc-800/60 scroll-mt-6">
+            <h2 id={slugify(children)} className="text-xl font-semibold text-white mt-7 mb-3 pb-2 border-b border-zinc-800/60 scroll-mt-20">
               {children}
             </h2>
           ),
           h3: ({ children }) => (
-            <h3 id={slugify(children)} className="text-base font-semibold text-zinc-100 mt-6 mb-2 scroll-mt-6">
+            <h3 id={slugify(children)} className="text-base font-semibold text-zinc-100 mt-6 mb-2 scroll-mt-20">
               {children}
             </h3>
           ),
           h4: ({ children }) => (
-            <h4 id={slugify(children)} className="text-sm font-semibold text-zinc-200 mt-5 mb-2 scroll-mt-6">
+            <h4 id={slugify(children)} className="text-sm font-semibold text-zinc-200 mt-5 mb-2 scroll-mt-20">
               {children}
             </h4>
           ),
