@@ -132,8 +132,8 @@ export default function SubscriptionMetrics({ subscriptions, currency, usdToInr 
           <span className="text-xs uppercase tracking-wider">Business Timezone</span>
           <CalendarClock className="w-4 h-4 text-zinc-500" />
         </div>
-        <p className="text-base font-semibold text-white mt-3">UTC (Default)</p>
-        <p className="text-[11px] text-zinc-500 mt-1">Billing dates aligned to standard</p>
+        <p className="text-base font-semibold text-white mt-3">IST — UTC+5:30</p>
+        <p className="text-[11px] text-zinc-500 mt-1">India Standard Time</p>
       </div>
     </div>
   );
