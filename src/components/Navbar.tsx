@@ -15,6 +15,7 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import BrandLogo from './BrandLogo';
+import { useMobileNav } from './MobileNavContext';
 
 const navItems = [
   { href: '/media-engine', label: 'Media Engine', icon: Cpu },
@@ -31,6 +32,7 @@ const externalItems = [
 export default function Navbar() {
   const pathname = usePathname();
   const [loggingOut, setLoggingOut] = useState(false);
+  const { open, close } = useMobileNav();
 
   if (pathname === '/login' || pathname === '/signin') return null;
 
@@ -52,10 +54,23 @@ export default function Navbar() {
   };
 
   return (
-    <aside className="fixed left-0 top-0 bottom-0 w-[220px] bg-[#0d0d0d] border-r border-zinc-800/60 flex flex-col z-40">
+    <>
+      {/* Mobile backdrop */}
+      {open && (
+        <div
+          className="fixed inset-0 bg-black/60 z-40 md:hidden"
+          onClick={close}
+        />
+      )}
+
+      <aside
+        className={`fixed left-0 top-0 bottom-0 w-[220px] bg-[#0d0d0d] border-r border-zinc-800/60 flex flex-col z-50 transition-transform duration-200 ease-in-out${
+          open ? ' translate-x-0' : ' -translate-x-full'
+        } md:translate-x-0`}
+      >
         {/* Logo */}
         <div className="px-5 h-[60px] flex items-center border-b border-zinc-800/40 shrink-0">
-          <Link href="/" className="flex items-center gap-2.5">
+          <Link href="/" className="flex items-center gap-2.5" onClick={close}>
             <BrandLogo size={20} className="text-white shrink-0" />
             <div className="flex flex-col leading-none">
               <span className="text-[12px] font-bold tracking-tight text-white">TRAVINGAT</span>
@@ -70,6 +85,7 @@ export default function Navbar() {
         <nav className="flex-1 px-3 py-3 flex flex-col gap-0.5 overflow-y-auto">
           <Link
             href="/"
+            onClick={close}
             className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors ${
               pathname === '/'
                 ? 'bg-zinc-800/70 text-white'
@@ -92,6 +108,7 @@ export default function Navbar() {
               <Link
                 key={href}
                 href={href}
+                onClick={close}
                 className={`flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium transition-colors ${
                   isActive
                     ? 'bg-zinc-800/70 text-white'
@@ -116,6 +133,7 @@ export default function Navbar() {
               href={href}
               target="_blank"
               rel="noopener noreferrer"
+              onClick={close}
               className="flex items-center gap-2.5 px-3 py-2 rounded-md text-[13px] font-medium text-white/60 hover:text-white hover:bg-zinc-800/40 transition-colors"
             >
               <Icon className="w-[15px] h-[15px] shrink-0" />
@@ -142,5 +160,6 @@ export default function Navbar() {
           </button>
         </div>
       </aside>
+    </>
   );
 }

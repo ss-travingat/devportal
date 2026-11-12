@@ -2,11 +2,13 @@
 
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronRight } from 'lucide-react';
+import { ChevronRight, Menu } from 'lucide-react';
+import { useMobileNav } from './MobileNavContext';
 
 export default function PageHeader() {
   const pathname = usePathname();
   const router = useRouter();
+  const { toggle } = useMobileNav();
 
   if (!pathname || pathname === '/') return null;
 
@@ -19,7 +21,15 @@ export default function PageHeader() {
   const mediaEngineSub = isMediaEngine && pathname.split('/')[2] ? decodeURIComponent(pathname.split('/')[2]) : null;
 
   return (
-    <div className="sticky top-0 z-30 h-[52px] border-b border-zinc-800/60 bg-[#121212]/95 backdrop-blur-sm flex items-center px-6 gap-1.5 text-[12px] shrink-0">
+    <div className="sticky top-0 z-30 h-[52px] border-b border-zinc-800/60 bg-[#121212]/95 backdrop-blur-sm flex items-center px-4 md:px-6 gap-1.5 text-[12px] shrink-0">
+      <button
+        type="button"
+        onClick={toggle}
+        className="md:hidden mr-2 p-1.5 rounded-md text-white/60 hover:text-white hover:bg-zinc-800/40 transition-colors shrink-0"
+        aria-label="Open navigation"
+      >
+        <Menu className="w-4 h-4" />
+      </button>
       <Link href="/" className="text-white/50 hover:text-white transition-colors font-medium">
         Overview
       </Link>
