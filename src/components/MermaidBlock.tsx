@@ -118,6 +118,15 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
   useEffect(() => {
     let cancelled = false;
     async function render() {
+      // Mermaid measures text in a temporary element. Left alone it appends that to <body>,
+      // which is a flex row here, so the element briefly becomes a flex item and squeezes the
+      // whole page (very visible on phones with big diagrams). Give it an off-screen,
+      // fixed-position scratch container so it never takes part in the page layout.
+      const scratch = document.createElement('div');
+      scratch.setAttribute('aria-hidden', 'true');
+      scratch.style.cssText =
+        'position:fixed;left:-10000px;top:0;width:1200px;visibility:hidden;pointer-events:none;overflow:hidden;';
+      document.body.appendChild(scratch);
       try {
         const mermaid = (await import('mermaid')).default;
         mermaid.initialize({
@@ -140,10 +149,12 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
             fontFamily: 'ui-sans-serif, system-ui, sans-serif',
           },
         });
-        const { svg: rendered } = await mermaid.render(mermaidId, code);
+        const { svg: rendered } = await mermaid.render(mermaidId, code, scratch);
         if (!cancelled) setSvg(rendered);
       } catch (err) {
         if (!cancelled) setError(String(err));
+      } finally {
+        scratch.remove();
       }
     }
     render();

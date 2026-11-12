@@ -16,7 +16,7 @@ flowchart LR
     CF --> Framer["travingat.com\nmarketing site (Framer)"]
     CF -->|"port 80"| N
 
-    subgraph VPS["Contabo server (everything below runs in Docker containers)"]
+    subgraph VPS["Contabo server (Docker)"]
         N["nginx-proxy\npicks the container by site name"]
         N --> App["app.travingat.com\nprofiles & Explorer Cards"]
         N --> Admin["admin.travingat.com\nstaff tools"]
