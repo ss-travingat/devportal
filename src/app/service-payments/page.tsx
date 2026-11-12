@@ -8,10 +8,14 @@ import SubscriptionFormModal from '@/components/SubscriptionFormModal';
 import SubscriptionDetailModal from '@/components/SubscriptionDetailModal';
 import SubscriptionMetrics from '@/components/SubscriptionMetrics';
 
+type DisplayCurrency = 'USD' | 'INR';
+
 export default function ServicePaymentsPage() {
   const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [currency, setCurrency] = useState<DisplayCurrency>('USD');
+  const [usdToInr, setUsdToInr] = useState(83.5);
 
   // Subscription modals
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -19,32 +23,38 @@ export default function ServicePaymentsPage() {
   const [detailSubscription, setDetailSubscription] = useState<Subscription | null>(null);
   const [isDetailOpen, setIsDetailOpen] = useState(false);
 
-  // Fetch subscriptions from backend on mount (asynchronous only to prevent cascading renders)
+  // Fetch subscriptions and FX rate on mount
   useEffect(() => {
     let isMounted = true;
 
     async function loadSubscriptions() {
       try {
         const res = await fetch('/api/subscriptions');
-        if (!res.ok) {
-          throw new Error(`Failed to load subscriptions (${res.status})`);
-        }
+        if (!res.ok) throw new Error(`Failed to load subscriptions (${res.status})`);
         const data = await res.json();
-        if (isMounted && Array.isArray(data)) {
-          setSubscriptions(data);
-        }
+        if (isMounted && Array.isArray(data)) setSubscriptions(data);
       } catch (err: unknown) {
-        if (isMounted) {
-          console.error('Failed to load subscriptions:', err);
-        }
+        if (isMounted) console.error('Failed to load subscriptions:', err);
       } finally {
-        if (isMounted) {
-          setIsLoading(false);
+        if (isMounted) setIsLoading(false);
+      }
+    }
+
+    async function loadFxRate() {
+      try {
+        const res = await fetch('/api/fx');
+        if (!res.ok) return;
+        const data = await res.json();
+        if (isMounted && typeof data.USD_TO_INR === 'number' && data.USD_TO_INR > 0) {
+          setUsdToInr(data.USD_TO_INR);
         }
+      } catch {
+        // Keep fallback rate already set in state
       }
     }
 
     loadSubscriptions();
+    loadFxRate();
 
     return () => {
       isMounted = false;
@@ -143,6 +153,32 @@ export default function ServicePaymentsPage() {
         </div>
 
         <div className="flex items-center gap-3">
+          {/* Currency toggle */}
+          <div className="flex items-center rounded-md border border-zinc-800 overflow-hidden text-xs font-medium">
+            <button
+              type="button"
+              onClick={() => setCurrency('USD')}
+              className={`px-3 py-1.5 transition-colors ${
+                currency === 'USD'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+              }`}
+            >
+              $ USD
+            </button>
+            <button
+              type="button"
+              onClick={() => setCurrency('INR')}
+              className={`px-3 py-1.5 border-l border-zinc-800 transition-colors ${
+                currency === 'INR'
+                  ? 'bg-zinc-700 text-white'
+                  : 'text-zinc-400 hover:text-white hover:bg-zinc-800/60'
+              }`}
+            >
+              ₹ INR
+            </button>
+          </div>
+
           <button
             type="button"
             onClick={handleOpenAdd}
@@ -170,7 +206,7 @@ export default function ServicePaymentsPage() {
         </div>
       )}
 
-      <SubscriptionMetrics subscriptions={subscriptions} />
+      <SubscriptionMetrics subscriptions={subscriptions} currency={currency} usdToInr={usdToInr} />
 
       {isLoading && subscriptions.length === 0 ? (
         <div className="flex flex-col items-center justify-center py-16 border border-zinc-800 rounded-lg bg-zinc-900/40 text-zinc-400">
