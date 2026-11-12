@@ -19,6 +19,7 @@ import {
 import BrandLogo from './BrandLogo';
 import { useMobileNav } from './MobileNavContext';
 import { setSidebarCollapsed, useSidebarCollapsed } from '@/lib/sidebar';
+import { signOut } from '@/lib/sign-out';
 
 const navItems = [
   { href: '/media-engine', label: 'Media Engine', icon: Cpu },
@@ -49,18 +50,7 @@ export default function Navbar() {
   const handleLogout = async () => {
     if (loggingOut) return;
     setLoggingOut(true);
-    try {
-      await fetch('/api/admin/session', { method: 'DELETE' });
-    } catch {}
-    finally {
-      try {
-        document.cookie =
-          'admin_session=; Path=/; Domain=.travingat.com; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
-        document.cookie =
-          'admin_session=; Path=/; Max-Age=0; Expires=Thu, 01 Jan 1970 00:00:00 GMT';
-      } catch {}
-      window.location.replace('/login?logout=1');
-    }
+    await signOut();
   };
 
   return (

@@ -1,9 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronRight, Menu } from 'lucide-react';
+import { ChevronRight, LogOut, Menu } from 'lucide-react';
 import { useMobileNav } from './MobileNavContext';
+import { signOut } from '@/lib/sign-out';
 
 // Crumbs never wrap: links keep their width, and only the current page truncates.
 const LINK = 'shrink-0 text-white/50 hover:text-white transition-colors font-medium';
@@ -21,8 +23,39 @@ export default function PageHeader() {
   const pathname = usePathname();
   const router = useRouter();
   const { toggle } = useMobileNav();
+  const [signingOut, setSigningOut] = useState(false);
 
-  if (!pathname || pathname === '/') return null;
+  if (!pathname) return null;
+
+  // Home has no breadcrumb. On phones it still needs a top bar, otherwise there is
+  // no menu button and no way to reach Sign Out (which otherwise lives in the drawer).
+  if (pathname === '/') {
+    return (
+      <div className="md:hidden sticky top-0 z-30 h-[52px] border-b border-zinc-800/60 bg-[#121212]/95 backdrop-blur-sm flex items-center justify-between px-4 shrink-0">
+        <button
+          type="button"
+          onClick={toggle}
+          className="p-1.5 -ml-1.5 rounded-md text-white/60 hover:text-white hover:bg-zinc-800/40 transition-colors"
+          aria-label="Open navigation"
+        >
+          <Menu className="w-4 h-4" />
+        </button>
+        <button
+          type="button"
+          onClick={async () => {
+            if (signingOut) return;
+            setSigningOut(true);
+            await signOut();
+          }}
+          disabled={signingOut}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium text-white/60 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
+        >
+          <LogOut className="w-3.5 h-3.5" />
+          {signingOut ? 'Signing out...' : 'Sign out'}
+        </button>
+      </div>
+    );
+  }
 
   const isMediaEngine = pathname.startsWith('/media-engine');
   const isMediaPortal = pathname.startsWith('/media-portal');
