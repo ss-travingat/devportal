@@ -3,7 +3,7 @@
 import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
-import { ChevronRight, LogOut, Menu } from 'lucide-react';
+import { ArrowLeft, ChevronRight, LogOut, Menu } from 'lucide-react';
 import { useMobileNav } from './MobileNavContext';
 import { signOut } from '@/lib/sign-out';
 
@@ -48,9 +48,9 @@ export default function PageHeader() {
             await signOut();
           }}
           disabled={signingOut}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium text-white/60 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
+          className="inline-flex items-center gap-1.5 h-8 pl-2.5 pr-3 rounded-md text-[12px] leading-none font-medium text-white/60 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer disabled:opacity-40 whitespace-nowrap"
         >
-          <LogOut className="w-3.5 h-3.5" />
+          <LogOut className="w-3.5 h-3.5 shrink-0" />
           {signingOut ? 'Signing out...' : 'Sign out'}
         </button>
       </div>
@@ -136,9 +136,10 @@ export default function PageHeader() {
       <button
         type="button"
         onClick={() => router.back()}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-md text-[11px] font-medium text-white/60 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
+        className="inline-flex items-center gap-1.5 h-8 pl-2.5 pr-3 rounded-md text-[12px] leading-none font-medium text-white/60 hover:text-white bg-zinc-900 hover:bg-zinc-800 border border-zinc-800 hover:border-zinc-700 transition-colors cursor-pointer shrink-0 whitespace-nowrap"
       >
-        ← Back
+        <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+        Back
       </button>
     </div>
   );

@@ -205,7 +205,8 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
               <p className="font-medium text-white mb-1">Failed to load document</p>
               <p className="font-mono text-xs">{error}</p>
               <Link href="/tech-docs" className="mt-4 inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white transition-colors">
-                ← Back to docs
+                <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+                Back to docs
               </Link>
             </div>
           </div>
@@ -248,51 +249,48 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
             {/* Content */}
             <MarkdownViewer content={body} />
 
-            {/* Previous / Next document */}
+            {/* Previous / Next doc: always one row, Previous on the left, Next on the right */}
             {(prevDoc || nextDoc) && (
-              <div className="mt-12 grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <nav aria-label="Previous and next doc" className="mt-12 grid grid-cols-2 gap-3">
                 {prevDoc && (
                   <Link
                     href={`/tech-docs/${prevDoc.slug}`}
-                    className="group flex items-center gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700 px-5 py-4 transition-colors"
+                    className="group min-w-0 flex flex-col gap-1 rounded-lg border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700 px-3 py-3 sm:px-4 transition-colors"
                   >
-                    <ArrowLeft className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white group-hover:-translate-x-0.5 transition-all" />
-                    <div className="min-w-0">
-                      <p className="text-[11px] uppercase tracking-widest text-white/30">Previous</p>
-                      <p className="mt-0.5 text-[14px] font-medium text-white truncate">{prevDoc.title}</p>
-                      {prevDoc.category && (
-                        <p className="text-[12px] text-white/40 truncate">{prevDoc.category}</p>
-                      )}
-                    </div>
+                    <span className="inline-flex items-center gap-1 text-[11px] leading-4 text-white/40 group-hover:text-white/60 transition-colors">
+                      <ArrowLeft className="w-3.5 h-3.5 shrink-0 group-hover:-translate-x-0.5 transition-transform" />
+                      Previous doc
+                    </span>
+                    <span className="text-[13px] sm:text-[14px] leading-snug font-medium text-white line-clamp-2">
+                      {prevDoc.title}
+                    </span>
                   </Link>
                 )}
                 {nextDoc && (
                   <Link
                     href={`/tech-docs/${nextDoc.slug}`}
-                    className={`group flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700 px-5 py-4 transition-colors${
-                      prevDoc ? '' : ' sm:col-start-2'
-                    }`}
+                    className="group col-start-2 min-w-0 flex flex-col items-end gap-1 text-right rounded-lg border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700 px-3 py-3 sm:px-4 transition-colors"
                   >
-                    <div className="min-w-0 text-right flex-1">
-                      <p className="text-[11px] uppercase tracking-widest text-white/30">Next</p>
-                      <p className="mt-0.5 text-[14px] font-medium text-white truncate">{nextDoc.title}</p>
-                      {nextDoc.category && (
-                        <p className="text-[12px] text-white/40 truncate">{nextDoc.category}</p>
-                      )}
-                    </div>
-                    <ArrowRight className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+                    <span className="inline-flex items-center gap-1 text-[11px] leading-4 text-white/40 group-hover:text-white/60 transition-colors">
+                      Next doc
+                      <ArrowRight className="w-3.5 h-3.5 shrink-0 group-hover:translate-x-0.5 transition-transform" />
+                    </span>
+                    <span className="text-[13px] sm:text-[14px] leading-snug font-medium text-white line-clamp-2">
+                      {nextDoc.title}
+                    </span>
                   </Link>
                 )}
-              </div>
+              </nav>
             )}
 
             {/* Footer */}
-            <div className={`${prevDoc || nextDoc ? 'mt-6' : 'mt-12'} pt-6 border-t border-zinc-800/40 flex items-center justify-between`}>
+            <div className={`${prevDoc || nextDoc ? 'mt-6' : 'mt-12'} pt-6 border-t border-zinc-800/40 flex items-center justify-between gap-4`}>
               <Link
                 href="/tech-docs"
-                className="inline-flex items-center gap-1.5 text-[12px] text-white/40 hover:text-white transition-colors"
+                className="inline-flex items-center gap-1.5 text-[12px] leading-none text-white/40 hover:text-white transition-colors"
               >
-                ← All Documents
+                <ArrowLeft className="w-3.5 h-3.5 shrink-0" />
+                All docs
               </Link>
               {doc.updatedAt && (
                 <span className="text-[11px] text-white/20">
