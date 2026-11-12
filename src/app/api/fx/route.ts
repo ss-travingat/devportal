@@ -12,7 +12,7 @@ export async function GET() {
     if (typeof rate !== 'number' || rate <= 0) throw new Error('INR rate missing or invalid');
     return NextResponse.json({ USD_TO_INR: rate });
   } catch (err) {
-    console.error('[/api/fx] FX rate fetch failed, using fallback:', err);
-    return NextResponse.json({ USD_TO_INR: FALLBACK_USD_TO_INR, fallback: true });
+    console.error('[/api/fx] FX rate fetch failed:', err);
+    return NextResponse.json({ error: 'rate_unavailable' }, { status: 503 });
   }
 }

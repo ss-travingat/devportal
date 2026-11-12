@@ -15,7 +15,7 @@ export default function ServicePaymentsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [currency, setCurrency] = useState<DisplayCurrency>('USD');
-  const [usdToInr, setUsdToInr] = useState(83.5);
+  const [usdToInr, setUsdToInr] = useState<number | null>(null);
 
   // Subscription modals
   const [isFormOpen, setIsFormOpen] = useState(false);
@@ -43,13 +43,13 @@ export default function ServicePaymentsPage() {
     async function loadFxRate() {
       try {
         const res = await fetch('/api/fx');
-        if (!res.ok) return;
+        if (!res.ok) return; // leaves usdToInr as null
         const data = await res.json();
         if (isMounted && typeof data.USD_TO_INR === 'number' && data.USD_TO_INR > 0) {
           setUsdToInr(data.USD_TO_INR);
         }
       } catch {
-        // Keep fallback rate already set in state
+        // leaves usdToInr as null — handled in SubscriptionMetrics
       }
     }
 
