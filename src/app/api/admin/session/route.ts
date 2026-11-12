@@ -17,7 +17,11 @@ export async function GET(request: NextRequest) {
 
     const rawSetCookie = res.headers.get('set-cookie');
     if (rawSetCookie) {
-      nextResponse.headers.set('set-cookie', rawSetCookie);
+      const stripped = rawSetCookie
+        .split(/;\s*/g)
+        .filter((p) => !/^domain=/i.test(p))
+        .join('; ');
+      nextResponse.headers.set('set-cookie', stripped);
     }
 
     return nextResponse;

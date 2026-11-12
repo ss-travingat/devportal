@@ -22,10 +22,16 @@ export async function POST(request: NextRequest) {
     const data = await res.json().catch(() => ({}));
     const nextResponse = NextResponse.json(data, { status: res.status });
 
-    // Forward Set-Cookie header (admin_session) from Django
+    // Forward Set-Cookie header (admin_session) from Django, stripping
+    // Domain= so the cookie scopes to the current host — Django sets
+    // Domain=.travingat.com which the browser rejects on localhost.
     const rawSetCookie = res.headers.get('set-cookie');
     if (rawSetCookie) {
-      nextResponse.headers.set('set-cookie', rawSetCookie);
+      const stripped = rawSetCookie
+        .split(/;\s*/g)
+        .filter((p) => !/^domain=/i.test(p))
+        .join('; ');
+      nextResponse.headers.set('set-cookie', stripped);
     }
 
     return nextResponse;
