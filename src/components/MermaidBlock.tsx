@@ -107,6 +107,8 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
   const [pan, setPan] = useState({ x: 0, y: 0 });
   const [isDragging, setIsDragging] = useState(false);
   const dragStartRef = useRef({ x: 0, y: 0 });
+  const pointersRef = useRef(new Map<number, { x: number; y: number }>());
+  const pinchRef = useRef<{ dist: number; zoom: number } | null>(null);
 
   // DOM references
   const inlineContainerRef = useRef<HTMLDivElement>(null);
@@ -163,30 +165,6 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
     };
   }, [code, mermaidId]);
 
-  // Window-level mouse listeners for reliable drag-to-pan across the entire viewport
-  useEffect(() => {
-    if (!isDragging) return;
-
-    const onMouseMove = (e: MouseEvent) => {
-      setPan({
-        x: e.clientX - dragStartRef.current.x,
-        y: e.clientY - dragStartRef.current.y,
-      });
-    };
-
-    const onMouseUp = () => {
-      setIsDragging(false);
-    };
-
-    window.addEventListener('mousemove', onMouseMove);
-    window.addEventListener('mouseup', onMouseUp);
-
-    return () => {
-      window.removeEventListener('mousemove', onMouseMove);
-      window.removeEventListener('mouseup', onMouseUp);
-    };
-  }, [isDragging]);
-
   // Fullscreen modal scroll lock and Escape key handler
   useEffect(() => {
     if (!isFullscreen) return;
@@ -239,14 +217,53 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
     setPan({ x: 0, y: 0 });
   }, []);
 
-  // Canvas Drag Start Handler
-  const handleCanvasMouseDown = (e: React.MouseEvent) => {
-    if (e.button !== 0) return; // Left-click only
+  // Pan and pinch-zoom via Pointer Events, so mouse, touch and pen all work.
+  // One pointer pans; two pointers pinch-zoom. The canvas sets `touch-action: none`
+  // so the browser doesn't steal the gesture to scroll the page.
+  const clampZoom = (z: number) => Math.min(Math.max(Number(z.toFixed(2)), 0.25), 4.0);
+  const pinchDistance = () => {
+    const [a, b] = Array.from(pointersRef.current.values());
+    return Math.hypot(a.x - b.x, a.y - b.y);
+  };
+
+  const handleCanvasPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return; // Left-click only
+    e.currentTarget.setPointerCapture(e.pointerId);
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointersRef.current.size === 1) {
+      dragStartRef.current = { x: e.clientX - pan.x, y: e.clientY - pan.y };
+    } else if (pointersRef.current.size === 2) {
+      pinchRef.current = { dist: pinchDistance() || 1, zoom };
+    }
     setIsDragging(true);
-    dragStartRef.current = {
-      x: e.clientX - pan.x,
-      y: e.clientY - pan.y,
-    };
+  };
+
+  const handleCanvasPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.has(e.pointerId)) return;
+    pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+    if (pointersRef.current.size >= 2 && pinchRef.current) {
+      setZoom(clampZoom(pinchRef.current.zoom * (pinchDistance() / pinchRef.current.dist)));
+    } else if (pointersRef.current.size === 1) {
+      setPan({
+        x: e.clientX - dragStartRef.current.x,
+        y: e.clientY - dragStartRef.current.y,
+      });
+    }
+  };
+
+  const handleCanvasPointerEnd = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (!pointersRef.current.delete(e.pointerId)) return;
+    pinchRef.current = null;
+
+    if (pointersRef.current.size === 0) {
+      setIsDragging(false);
+    } else if (pointersRef.current.size === 1) {
+      // One finger lifted after a pinch: carry on panning with the other without a jump
+      const [rest] = Array.from(pointersRef.current.values());
+      dragStartRef.current = { x: rest.x - pan.x, y: rest.y - pan.y };
+    }
   };
 
   // Copy diagram as high-resolution PNG image to clipboard
@@ -450,7 +467,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
   return (
     <>
       {/* Inline Diagram View */}
-      <div className="relative my-6 w-full h-[460px] border border-zinc-800 rounded-lg bg-zinc-950 overflow-hidden shadow-lg">
+      <div className="relative my-6 w-full h-[340px] sm:h-[460px] border border-zinc-800 rounded-lg bg-zinc-950 overflow-hidden shadow-lg">
         {/* Top-Left Zoom Level & Feedback Indicator */}
         <div className="absolute top-3 left-3 z-20 pointer-events-none flex items-center gap-2">
           <span className="font-mono text-[11px] text-zinc-400 bg-zinc-900/80 backdrop-blur-sm border border-zinc-800/80 px-2 py-0.5 rounded shadow-sm">
@@ -483,10 +500,14 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
           className="absolute inset-0 flex items-center justify-center select-none"
           style={{
             cursor: isDragging ? 'grabbing' : 'grab',
+            touchAction: 'none',
             backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.04) 1px, transparent 1px)',
             backgroundSize: '18px 18px',
           }}
-          onMouseDown={handleCanvasMouseDown}
+          onPointerDown={handleCanvasPointerDown}
+          onPointerMove={handleCanvasPointerMove}
+          onPointerUp={handleCanvasPointerEnd}
+          onPointerCancel={handleCanvasPointerEnd}
           onDoubleClick={handleReset}
         >
           <div
@@ -502,7 +523,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 
         {/* Subtle Bottom Help Hint */}
         <div className="absolute bottom-2 left-3 z-20 pointer-events-none text-[11px] text-zinc-500">
-          Drag to pan • Use +/− to zoom • Double-click to reset
+          Drag to pan • Pinch or +/− to zoom • Double-tap to reset
         </div>
       </div>
 
@@ -605,10 +626,14 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
             className="flex-1 relative overflow-hidden flex items-center justify-center"
             style={{
               cursor: isDragging ? 'grabbing' : 'grab',
+              touchAction: 'none',
               backgroundImage: 'radial-gradient(circle, rgba(255,255,255,0.06) 1px, transparent 1px)',
               backgroundSize: '22px 22px',
             }}
-            onMouseDown={handleCanvasMouseDown}
+            onPointerDown={handleCanvasPointerDown}
+            onPointerMove={handleCanvasPointerMove}
+            onPointerUp={handleCanvasPointerEnd}
+            onPointerCancel={handleCanvasPointerEnd}
             onDoubleClick={handleReset}
           >
             <div
