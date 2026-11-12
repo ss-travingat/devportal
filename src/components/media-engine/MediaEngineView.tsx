@@ -585,7 +585,7 @@ export default function MediaEngineView() {
       {/* Top Banner & Control Center */}
       < div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-4 border-b border-zinc-800" >
         <div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-x-3 gap-y-2">
             <h1 className="text-2xl font-bold tracking-tight text-white flex items-center gap-2.5">
               <span className="p-2 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 inline-flex">
                 <Cpu className="w-5 h-5" />
@@ -726,7 +726,7 @@ export default function MediaEngineView() {
         {/* Main Navigation Tabs */}
         <div className="space-y-6">
           <div className="border-b border-zinc-800 flex items-center justify-between">
-            <div className="flex items-center gap-2 overflow-x-auto pb-px">
+            <div className="flex items-center gap-2 overflow-x-auto pb-px min-w-0 max-w-full [&>button]:shrink-0 [&>button]:whitespace-nowrap [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
               <button
                 onClick={() => setActiveTab('queue')}
                 className={`inline-flex items-center gap-2 py-3 px-4 border-b-2 text-xs font-semibold transition-all cursor-pointer ${activeTab === 'queue'

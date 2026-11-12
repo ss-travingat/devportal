@@ -1,5 +1,8 @@
 @import "tailwindcss";
 
+/* Desktop sidebar collapsed state; set on <html> by src/lib/sidebar.ts (see data-sidebar) */
+@custom-variant sidebar-collapsed (html[data-sidebar="collapsed"] &);
+
 :root {
   --background: #121212;
   --foreground: #f4f4f5;

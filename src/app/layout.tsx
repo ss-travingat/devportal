@@ -5,6 +5,7 @@ import Navbar from "@/components/Navbar";
 import MainShell from "@/components/MainShell";
 import Providers from "@/components/Providers";
 import { MobileNavProvider } from "@/components/MobileNavContext";
+import { SIDEBAR_INIT_SCRIPT } from "@/lib/sidebar-config";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -30,8 +31,12 @@ export default function RootLayout({
   return (
     <html
       lang="en"
+      suppressHydrationWarning
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased bg-[#121212]`}
     >
+      <head>
+        <script dangerouslySetInnerHTML={{ __html: SIDEBAR_INIT_SCRIPT }} />
+      </head>
       <body className="min-h-screen bg-[#121212] text-white flex font-sans selection:bg-zinc-700 selection:text-white">
         <MobileNavProvider>
           <Suspense
@@ -43,7 +48,7 @@ export default function RootLayout({
           </Suspense>
           <Providers>
             <Suspense fallback={
-              <main className="flex-1 md:ml-[220px] min-h-screen bg-[#121212] flex flex-col overflow-x-hidden">
+              <main className="flex-1 min-w-0 md:ml-[220px] min-h-screen bg-[#121212] flex flex-col overflow-x-clip">
                 {children}
               </main>
             }>

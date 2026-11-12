@@ -203,27 +203,6 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
     };
   }, [isFullscreen]);
 
-  // Non-passive wheel event listener to smoothly zoom without scrolling the parent page
-  useEffect(() => {
-    const activeEl = isFullscreen ? modalCanvasRef.current : inlineContainerRef.current;
-    if (!activeEl) return;
-
-    const onWheel = (e: WheelEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      const zoomFactor = e.deltaY < 0 ? 1.15 : 0.85;
-      setZoom((prevZoom) => {
-        const next = Math.max(0.25, Math.min(4.0, Number((prevZoom * zoomFactor).toFixed(2))));
-        return next;
-      });
-    };
-
-    activeEl.addEventListener('wheel', onWheel, { passive: false });
-    return () => {
-      activeEl.removeEventListener('wheel', onWheel);
-    };
-  }, [isFullscreen, svg]);
-
   // Zoom and Fullscreen Actions
   const handleZoomIn = useCallback((e?: React.MouseEvent) => {
     e?.stopPropagation();
@@ -512,7 +491,7 @@ export default function MermaidBlock({ code }: MermaidBlockProps) {
 
         {/* Subtle Bottom Help Hint */}
         <div className="absolute bottom-2 left-3 z-20 pointer-events-none text-[11px] text-zinc-500">
-          Drag to pan • Scroll to zoom • Double-click to reset
+          Drag to pan • Use +/− to zoom • Double-click to reset
         </div>
       </div>
 

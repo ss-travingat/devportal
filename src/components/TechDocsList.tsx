@@ -4,13 +4,12 @@ import React, { useMemo, useState } from 'react';
 import Link from 'next/link';
 import { Search, ArrowRight, Clock } from 'lucide-react';
 import { DocMeta } from '@/types/docs';
+import { groupDocsByCategory } from '@/lib/docs-order';
 
 interface TechDocsListProps {
   docs: DocMeta[];
   onSelect?: (slug: string) => void;
 }
-
-const CATEGORY_ORDER = ['Overview', 'Platform', 'Product', 'Operations', 'General'];
 
 function formatDate(raw: string): string {
   if (!raw) return '';
@@ -33,25 +32,7 @@ export default function TechDocsList({ docs, onSelect }: TechDocsListProps) {
     );
   }, [docs, search]);
 
-  const grouped = useMemo(() => {
-    const map = new Map<string, DocMeta[]>();
-    for (const doc of filtered) {
-      const cat = doc.category || 'General';
-      if (!map.has(cat)) map.set(cat, []);
-      map.get(cat)!.push(doc);
-    }
-    // Sort categories by preferred order, then alphabetically
-    return new Map(
-      [...map.entries()].sort(([a], [b]) => {
-        const ai = CATEGORY_ORDER.indexOf(a);
-        const bi = CATEGORY_ORDER.indexOf(b);
-        if (ai === -1 && bi === -1) return a.localeCompare(b);
-        if (ai === -1) return 1;
-        if (bi === -1) return -1;
-        return ai - bi;
-      })
-    );
-  }, [filtered]);
+  const grouped = useMemo(() => groupDocsByCategory(filtered), [filtered]);
 
   return (
     <div className="space-y-8">

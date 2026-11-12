@@ -433,7 +433,7 @@ export default function MediaQueueTab({
         </div>
 
         {/* Pagination Bar */}
-        <div className="p-3.5 bg-zinc-900/90 border-t border-zinc-800 flex items-center justify-between text-xs text-zinc-400">
+        <div className="p-3.5 bg-zinc-900/90 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
           <div>
             Showing <strong className="text-zinc-200">{jobs.length}</strong> of{' '}
             <strong className="text-zinc-200">{totalCount}</strong> jobs

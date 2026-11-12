@@ -62,7 +62,7 @@ export default function MediaBenchmarksTab({
             </p>
           </div>
 
-          <div className="mt-5 pt-4 border-t border-zinc-800 flex items-center justify-between">
+          <div className="mt-5 pt-4 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3">
             <span className="text-[11px] font-mono text-zinc-500">Task: scan_unoptimized_media</span>
             <button
               type="button"
@@ -90,7 +90,7 @@ export default function MediaBenchmarksTab({
             </p>
           </div>
 
-          <div className="mt-5 pt-4 border-t border-zinc-800 flex items-center justify-between">
+          <div className="mt-5 pt-4 border-t border-zinc-800 flex flex-wrap items-center justify-between gap-3">
             <span className="text-[11px] font-mono text-zinc-500">Task: scan_missing_thumbnails</span>
             <button
               type="button"
@@ -108,7 +108,7 @@ export default function MediaBenchmarksTab({
       {/* Format Breakdown */}
       {formats.length > 0 && (
         <div className="p-5 rounded-xl bg-zinc-900/80 border border-zinc-800 space-y-4">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-2">
             <h3 className="text-sm font-semibold text-white flex items-center gap-2">
               <Layers className="w-4 h-4 text-blue-400" />
               <span>Original Format Ingestion Breakdown</span>

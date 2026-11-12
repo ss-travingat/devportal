@@ -3,6 +3,7 @@
 import React from 'react';
 import { Subscription } from '@/types/subscription';
 import { CreditCard, CalendarClock, TrendingUp, Layers, AlertTriangle } from 'lucide-react';
+import { estimatedMonthlyUSD } from '@/lib/spend';
 
 interface SubscriptionMetricsProps {
   subscriptions: Subscription[];
@@ -15,11 +16,6 @@ function canComputeTotal(paidSubs: Subscription[], currency: 'USD' | 'INR', usdT
   if (currency === 'USD') return true; // USD subs don't need conversion
   if (usdToInr === null) return false; // INR display needs the rate
   return true;
-}
-
-function toUSD(amount: number, subCurrency: string, usdToInr: number): number {
-  if (subCurrency === 'INR') return amount / usdToInr;
-  return amount;
 }
 
 function fmtUSD(usdAmount: number): string {
@@ -40,22 +36,9 @@ export default function SubscriptionMetrics({ subscriptions, currency, usdToInr 
   const freeSubs = activeSubs.filter((s) => Boolean(s.isFree || s.billingFrequency === 'Free' || Number(s.amount) === 0));
   const paidSubs = activeSubs.filter((s) => !Boolean(s.isFree || s.billingFrequency === 'Free' || Number(s.amount) === 0));
 
-  const rateAvailable = canComputeTotal(paidSubs, currency, usdToInr);
-
-  // Only compute when we have everything needed
-  const monthlyUSD = rateAvailable ? paidSubs.reduce((acc, sub) => {
-    const raw = parseFloat(sub.amount) || 0;
-    const usd = toUSD(raw, sub.currency, usdToInr as number);
-    switch (sub.billingFrequency) {
-      case 'Monthly':   return acc + usd;
-      case 'Quarterly': return acc + usd / 3;
-      case 'Yearly':    return acc + usd / 12;
-      case 'Weekly':    return acc + usd * 4.33;
-      case 'One-time':
-      case 'Free':      return acc;
-      default:          return acc + usd;
-    }
-  }, 0) : 0;
+  const computedMonthlyUSD = estimatedMonthlyUSD(subscriptions, usdToInr);
+  const rateAvailable = canComputeTotal(paidSubs, currency, usdToInr) && computedMonthlyUSD !== null;
+  const monthlyUSD = computedMonthlyUSD ?? 0;
 
   const annualUSD = monthlyUSD * 12;
 

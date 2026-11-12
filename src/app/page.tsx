@@ -19,9 +19,11 @@ import {
 import { Subscription } from '@/types/subscription';
 import { DocMeta } from '@/types/docs';
 import { EngineStats } from '@/types/media';
+import { estimatedMonthlyUSD, paidActiveSubscriptions } from '@/lib/spend';
 
 export default function HomePage() {
-  const [subscriptions, setSubscriptions] = useState<Subscription[]>([]);
+  const [subscriptions, setSubscriptions] = useState<Subscription[] | null>(null);
+  const [usdToInr, setUsdToInr] = useState<number | null>(null);
   const [docs, setDocs] = useState<DocMeta[]>([]);
   const [liveUploadsCount, setLiveUploadsCount] = useState<number | null>(null);
   const [engineStats, setEngineStats] = useState<EngineStats | null>(null);
@@ -29,7 +31,10 @@ export default function HomePage() {
   useEffect(() => {
     fetch('/api/media-engine/stats')
       .then((res) => res.json())
-      .then((data) => { if (data && typeof data.total_media === 'number') setEngineStats(data); })
+      .then((data) => {
+        // Offline fallbacks return zeros with is_offline: never show those as real numbers
+        if (data && !data.is_offline && typeof data.total_media === 'number') setEngineStats(data);
+      })
       .catch(() => {});
   }, []);
 
@@ -37,6 +42,10 @@ export default function HomePage() {
     fetch('/api/subscriptions')
       .then((res) => res.json())
       .then((data) => { if (Array.isArray(data)) setSubscriptions(data); })
+      .catch(() => {});
+    fetch('/api/fx')
+      .then((res) => res.json())
+      .then((data) => { if (typeof data.USD_TO_INR === 'number' && data.USD_TO_INR > 0) setUsdToInr(data.USD_TO_INR); })
       .catch(() => {});
   }, []);
 
@@ -50,14 +59,24 @@ export default function HomePage() {
   useEffect(() => {
     fetch('/api/media-engine/uploads?filter=live')
       .then((res) => res.json())
-      .then((data) => { if (typeof data.total === 'number') setLiveUploadsCount(data.total); })
+      .then((data) => { if (!data.is_offline && !data.error && typeof data.total === 'number') setLiveUploadsCount(data.total); })
       .catch(() => {});
   }, []);
 
-  const activeCount = subscriptions.filter((s) => s.status === 'Active').length;
-  const totalAmount = subscriptions
-    .filter((s) => s.status === 'Active')
-    .reduce((acc, curr) => acc + (parseFloat(curr.amount) || 0), 0);
+  const activeCount = subscriptions ? subscriptions.filter((s) => s.status === 'Active').length : null;
+  const paidCount = subscriptions ? paidActiveSubscriptions(subscriptions).length : 0;
+  // null = cannot be computed truthfully (not loaded, or FX rate missing for INR rows)
+  const monthlyUSD = subscriptions && paidCount > 0 ? estimatedMonthlyUSD(subscriptions, usdToInr) : null;
+  const monthlySpendLabel = monthlyUSD !== null
+    ? `$${monthlyUSD.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+    : null;
+  const spendSubtext =
+    activeCount === null ? 'Unavailable'
+    : activeCount === 0 ? 'No services tracked'
+    : paidCount === 0 ? `${activeCount} active, all free`
+    : monthlyUSD === null ? 'Exchange rate unavailable'
+    : `${activeCount} active service${activeCount === 1 ? '' : 's'}`;
+  const hasCompressionData = engineStats !== null && engineStats.total_media > 0;
 
   return (
     <div className="px-8 py-8 max-w-[1200px] w-full">
@@ -89,7 +108,7 @@ export default function HomePage() {
             <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
           </div>
           <div className="text-[28px] font-bold text-emerald-400 leading-none font-mono">
-            {engineStats ? `${engineStats.savings_pct}%` : '—'}
+            {hasCompressionData ? `${engineStats.savings_pct}%` : '—'}
           </div>
           <div className="text-[11px] text-white/40 mt-1.5">Average savings</div>
         </div>
@@ -111,11 +130,9 @@ export default function HomePage() {
             <DollarSign className="w-3.5 h-3.5 text-white/40" />
           </div>
           <div className="text-[28px] font-bold text-white leading-none font-mono">
-            {totalAmount > 0
-              ? `$${totalAmount.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
-              : '—'}
+            {monthlySpendLabel ?? '—'}
           </div>
-          <div className="text-[11px] text-white/40 mt-1.5">{activeCount} active services</div>
+          <div className="text-[11px] text-white/40 mt-1.5">{spendSubtext}</div>
         </div>
       </div>
 
@@ -159,7 +176,7 @@ export default function HomePage() {
           <div className="mt-5 pt-4 border-t border-zinc-800/60 flex items-center justify-between text-[12px]">
             <span className="text-white/40">
               Savings:{' '}
-              <strong className="text-emerald-400 font-mono">{engineStats ? `${engineStats.savings_pct}%` : '—'}</strong>
+              <strong className="text-emerald-400 font-mono">{hasCompressionData ? `${engineStats.savings_pct}%` : '—'}</strong>
             </span>
             <span className="inline-flex items-center gap-1 font-medium text-white group-hover:translate-x-0.5 transition-transform">
               Open Console <ArrowRight className="w-3.5 h-3.5" />
@@ -206,7 +223,7 @@ export default function HomePage() {
                 <CreditCard className="w-4 h-4 text-white" />
               </div>
               <span className="text-[10px] font-mono px-2 py-0.5 rounded-md border border-zinc-700/40 bg-zinc-800/40 text-white">
-                {activeCount} Active
+                {activeCount !== null ? `${activeCount} Active` : 'Subscriptions'}
               </span>
             </div>
 
@@ -218,7 +235,7 @@ export default function HomePage() {
 
           <div className="mt-5 pt-4 border-t border-zinc-800/60 flex items-center justify-between text-[12px]">
             <span className="text-white/40 font-mono">
-              ${totalAmount > 0 ? totalAmount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'}/mo
+              {monthlySpendLabel ? `${monthlySpendLabel}/mo` : '—'}
             </span>
             <span className="inline-flex items-center gap-1 font-medium text-white group-hover:translate-x-0.5 transition-transform">
               View Services <ArrowRight className="w-3.5 h-3.5" />

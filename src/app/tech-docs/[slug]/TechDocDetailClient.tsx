@@ -2,9 +2,10 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import Link from 'next/link';
-import { Clock, User, Tag, ChevronRight } from 'lucide-react';
-import { DocDetail } from '@/types/docs';
+import { Clock, User, Tag, ArrowRight } from 'lucide-react';
+import { DocDetail, DocMeta } from '@/types/docs';
 import MarkdownViewer from '@/components/MarkdownViewer';
+import { groupDocsByCategory, readingOrder } from '@/lib/docs-order';
 
 interface TocEntry {
   level: 2 | 3;
@@ -32,6 +33,12 @@ function extractTOC(content: string): TocEntry[] {
     });
 }
 
+function stripLeadingTitle(content: string, title: string): string {
+  const m = content.match(/^\s*#\s+(.+?)\s*\r?\n/);
+  if (m && m[1].trim() === title.trim()) return content.slice(m[0].length).replace(/^\s+/, '');
+  return content;
+}
+
 function formatDate(raw: string): string {
   if (!raw) return '';
   const d = new Date(raw);
@@ -39,11 +46,16 @@ function formatDate(raw: string): string {
   return d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 }
 
+// The docs list is static for the life of a deploy; cache it so moving between
+// documents doesn't make the sidebar flash empty while it refetches.
+let cachedDocList: DocMeta[] | null = null;
+
 export default function TechDocDetailClient({ slug }: { slug: string }) {
   const [doc, setDoc] = useState<DocDetail | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [activeId, setActiveId] = useState('');
+  const [allDocs, setAllDocs] = useState<DocMeta[]>(cachedDocList ?? []);
 
   useEffect(() => {
     let ignore = false;
@@ -62,7 +74,32 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
     return () => { ignore = true; };
   }, [slug]);
 
-  const toc = useMemo(() => (doc?.content ? extractTOC(doc.content) : []), [doc?.content]);
+  useEffect(() => {
+    if (cachedDocList) return;
+    let ignore = false;
+    fetch('/api/docs')
+      .then((res) => res.json())
+      .then((data: DocMeta[]) => {
+        if (!Array.isArray(data)) return;
+        cachedDocList = data;
+        if (!ignore) setAllDocs(data);
+      })
+      .catch(() => {});
+    return () => { ignore = true; };
+  }, []);
+
+  // The page header already renders the title as an <h1>, so drop the Markdown's own
+  // leading "# Title" line when it repeats it.
+  const content = doc?.content ?? '';
+  const title = doc?.title ?? '';
+  const body = useMemo(() => (content ? stripLeadingTitle(content, title) : ''), [content, title]);
+  const toc = useMemo(() => (body ? extractTOC(body) : []), [body]);
+  const groupedDocs = useMemo(() => groupDocsByCategory(allDocs), [allDocs]);
+  const nextDoc = useMemo(() => {
+    const ordered = readingOrder(allDocs);
+    const i = ordered.findIndex((d) => d.slug === slug);
+    return i >= 0 && i < ordered.length - 1 ? ordered[i + 1] : null;
+  }, [allDocs, slug]);
 
   // Track active heading via IntersectionObserver
   useEffect(() => {
@@ -83,134 +120,164 @@ export default function TechDocDetailClient({ slug }: { slug: string }) {
     return () => observer.disconnect();
   }, [toc]);
 
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-24 text-white/30 text-sm">
-        <span className="animate-pulse">Loading document...</span>
-      </div>
-    );
-  }
-
-  if (error) {
-    return (
-      <div className="px-8 py-8 max-w-[800px]">
-        <div className="p-5 border border-zinc-800 rounded-xl bg-zinc-950 text-sm text-white/60">
-          <p className="font-medium text-white mb-1">Failed to load document</p>
-          <p className="font-mono text-xs">{error}</p>
-          <Link href="/tech-docs" className="mt-4 inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white transition-colors">
-            ← Back to docs
-          </Link>
-        </div>
-      </div>
-    );
-  }
-
-  if (!doc) return null;
-
   return (
     <div className="flex min-h-0 flex-1">
-      {/* TOC sidebar */}
-      {toc.length > 0 && (
-        <aside className="hidden lg:flex flex-col w-[220px] shrink-0 border-r border-zinc-800/40">
-          <div className="sticky top-[52px] p-5 overflow-y-auto max-h-[calc(100vh-52px)]">
-            <p className="text-[10px] font-semibold tracking-[0.1em] text-white/30 uppercase mb-3">
-              On this page
+      {/* Left sidebar: all documents + table of contents (desktop only) */}
+      <aside className="hidden lg:flex flex-col w-[240px] shrink-0 border-r border-zinc-800/40">
+        <div className="sticky top-[52px] p-5 overflow-y-auto max-h-[calc(100vh-52px)] space-y-6">
+          <nav aria-label="All documents">
+            <p className="text-[10px] font-semibold tracking-widest text-white/30 uppercase mb-3">
+              Documents
             </p>
-            <nav className="flex flex-col gap-0.5">
-              {toc.map(({ level, text, id }) => (
-                <a
-                  key={id}
-                  href={`#${id}`}
-                  onClick={(e) => {
-                    e.preventDefault();
-                    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
-                    setActiveId(id);
-                  }}
-                  className={`text-[12px] leading-relaxed transition-colors py-0.5 ${
-                    level === 3 ? 'pl-3' : ''
-                  } ${
-                    activeId === id
-                      ? 'text-white font-medium'
-                      : 'text-white/40 hover:text-white'
-                  }`}
-                >
-                  {text}
-                </a>
+            <div className="space-y-4">
+              {Array.from(groupedDocs.entries()).map(([category, docs]) => (
+                <div key={category}>
+                  <p className="text-[11px] font-medium text-white/40 mb-1">{category}</p>
+                  <ul className="flex flex-col gap-0.5">
+                    {docs.map((d) => {
+                      const isActive = d.slug === slug;
+                      return (
+                        <li key={d.slug}>
+                          <Link
+                            href={`/tech-docs/${d.slug}`}
+                            aria-current={isActive ? 'page' : undefined}
+                            className={`block rounded-md px-2 py-1.5 text-[12px] leading-snug transition-colors ${
+                              isActive
+                                ? 'bg-zinc-800/70 text-white font-medium'
+                                : 'text-white/50 hover:text-white hover:bg-zinc-800/40'
+                            }`}
+                          >
+                            {d.title}
+                          </Link>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </div>
               ))}
+            </div>
+          </nav>
+
+          {toc.length > 0 && (
+            <nav aria-label="On this page" className="pt-5 border-t border-zinc-800/40">
+              <p className="text-[10px] font-semibold tracking-widest text-white/30 uppercase mb-3">
+                On this page
+              </p>
+              <div className="flex flex-col gap-0.5">
+                {toc.map(({ level, text, id }) => (
+                  <a
+                    key={id}
+                    href={`#${id}`}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      document.getElementById(id)?.scrollIntoView({ behavior: 'smooth' });
+                      setActiveId(id);
+                    }}
+                    className={`text-[12px] leading-relaxed transition-colors py-0.5 ${
+                      level === 3 ? 'pl-3' : ''
+                    } ${
+                      activeId === id
+                        ? 'text-white font-medium'
+                        : 'text-white/40 hover:text-white'
+                    }`}
+                  >
+                    {text}
+                  </a>
+                ))}
+              </div>
             </nav>
-          </div>
-        </aside>
-      )}
+          )}
+        </div>
+      </aside>
 
       {/* Main content */}
-      <div className="flex-1 min-w-0 px-8 py-8">
-        <div className="max-w-[760px]">
-          {/* Doc header */}
-          <div className="mb-8 pb-6 border-b border-zinc-800/60">
-            <div className="flex items-center gap-1.5 text-[11px] text-white/30 mb-3">
-              <Link href="/tech-docs" className="hover:text-white/60 transition-colors">
-                Tech Docs
+      <div className="flex-1 min-w-0 px-4 sm:px-8 py-8">
+        {loading ? (
+          <div className="flex items-center justify-center py-24 text-white/30 text-sm">
+            <span className="animate-pulse">Loading document...</span>
+          </div>
+        ) : error ? (
+          <div className="max-w-[800px]">
+            <div className="p-5 border border-zinc-800 rounded-xl bg-zinc-950 text-sm text-white/60">
+              <p className="font-medium text-white mb-1">Failed to load document</p>
+              <p className="font-mono text-xs">{error}</p>
+              <Link href="/tech-docs" className="mt-4 inline-flex items-center gap-1.5 text-xs text-zinc-300 hover:text-white transition-colors">
+                ← Back to docs
               </Link>
-              <ChevronRight className="w-3 h-3" />
-              {doc.category && (
-                <>
-                  <span className="text-white/40">{doc.category}</span>
-                  <ChevronRight className="w-3 h-3" />
-                </>
+            </div>
+          </div>
+        ) : doc ? (
+          <div className="max-w-[760px]">
+            {/* Doc header */}
+            <div className="mb-8 pb-6 border-b border-zinc-800/60">
+              <h1 className="text-[26px] font-bold tracking-tight text-white mb-2">
+                {doc.title}
+              </h1>
+
+              {doc.description && (
+                <p className="text-[14px] text-white/60 leading-relaxed mb-4">
+                  {doc.description}
+                </p>
               )}
-              <span className="text-white/60">{doc.title}</span>
+
+              <div className="flex flex-wrap items-center gap-4 text-[12px] text-white/40">
+                {doc.category && (
+                  <span className="flex items-center gap-1.5">
+                    <Tag className="w-3 h-3" />
+                    <span className="text-white/50">{doc.category}</span>
+                  </span>
+                )}
+                {doc.author && (
+                  <span className="flex items-center gap-1.5">
+                    <User className="w-3 h-3" />
+                    <span>{doc.author}</span>
+                  </span>
+                )}
+                {doc.updatedAt && (
+                  <span className="flex items-center gap-1.5">
+                    <Clock className="w-3 h-3" />
+                    <span>Updated {formatDate(doc.updatedAt)}</span>
+                  </span>
+                )}
+              </div>
             </div>
 
-            <h1 className="text-[26px] font-bold tracking-tight text-white mb-2">
-              {doc.title}
-            </h1>
+            {/* Content */}
+            <MarkdownViewer content={body} />
 
-            {doc.description && (
-              <p className="text-[14px] text-white/60 leading-relaxed mb-4">
-                {doc.description}
-              </p>
+            {/* Next document */}
+            {nextDoc && (
+              <Link
+                href={`/tech-docs/${nextDoc.slug}`}
+                className="group mt-12 flex items-center justify-between gap-4 rounded-xl border border-zinc-800 bg-zinc-900/40 hover:bg-zinc-900/80 hover:border-zinc-700 px-5 py-4 transition-colors"
+              >
+                <div className="min-w-0">
+                  <p className="text-[11px] uppercase tracking-widest text-white/30">Next</p>
+                  <p className="mt-0.5 text-[14px] font-medium text-white truncate">{nextDoc.title}</p>
+                  {nextDoc.category && (
+                    <p className="text-[12px] text-white/40 truncate">{nextDoc.category}</p>
+                  )}
+                </div>
+                <ArrowRight className="w-4 h-4 shrink-0 text-white/50 group-hover:text-white group-hover:translate-x-0.5 transition-all" />
+              </Link>
             )}
 
-            <div className="flex flex-wrap items-center gap-4 text-[12px] text-white/40">
-              {doc.category && (
-                <span className="flex items-center gap-1.5">
-                  <Tag className="w-3 h-3" />
-                  <span className="text-white/50">{doc.category}</span>
-                </span>
-              )}
-              {doc.author && (
-                <span className="flex items-center gap-1.5">
-                  <User className="w-3 h-3" />
-                  <span>{doc.author}</span>
-                </span>
-              )}
+            {/* Footer */}
+            <div className={`${nextDoc ? 'mt-6' : 'mt-12'} pt-6 border-t border-zinc-800/40 flex items-center justify-between`}>
+              <Link
+                href="/tech-docs"
+                className="inline-flex items-center gap-1.5 text-[12px] text-white/40 hover:text-white transition-colors"
+              >
+                ← All Documents
+              </Link>
               {doc.updatedAt && (
-                <span className="flex items-center gap-1.5">
-                  <Clock className="w-3 h-3" />
-                  <span>Updated {formatDate(doc.updatedAt)}</span>
+                <span className="text-[11px] text-white/20">
+                  Last updated {formatDate(doc.updatedAt)}
                 </span>
               )}
             </div>
           </div>
-
-          {/* Content */}
-          <MarkdownViewer content={doc.content} />
-
-          {/* Footer */}
-          <div className="mt-12 pt-6 border-t border-zinc-800/40 flex items-center justify-between">
-            <Link
-              href="/tech-docs"
-              className="inline-flex items-center gap-1.5 text-[12px] text-white/40 hover:text-white transition-colors"
-            >
-              ← All Documents
-            </Link>
-            {doc.updatedAt && (
-              <span className="text-[11px] text-white/20">
-                Last updated {formatDate(doc.updatedAt)}
-              </span>
-            )}
-          </div>
-        </div>
+        ) : null}
       </div>
     </div>
   );

@@ -192,8 +192,8 @@ export default function MediaAssetsTab({
         </div>
 
         {/* Right side: Search + View Switch */}
-        <div className="flex items-center gap-2.5">
-          <div className="relative min-w-[220px]">
+        <div className="flex flex-wrap items-center gap-2.5">
+          <div className="relative min-w-[200px] flex-1 lg:flex-initial lg:min-w-[220px]">
             <Search className="w-3.5 h-3.5 text-zinc-400 absolute left-3 top-1/2 -translate-y-1/2" />
             <input
               type="text"
@@ -491,7 +491,7 @@ export default function MediaAssetsTab({
       )}
 
       {/* Pagination Bar */}
-      <div className="p-3.5 bg-zinc-900/90 border border-zinc-800 rounded-xl flex items-center justify-between text-xs text-zinc-400">
+      <div className="p-3.5 bg-zinc-900/90 border border-zinc-800 rounded-xl flex flex-wrap items-center justify-between gap-2 text-xs text-zinc-400">
         <div>
           Showing <strong className="text-zinc-200">{assets.length}</strong> of{' '}
           <strong className="text-zinc-200">{totalCount}</strong> assets
