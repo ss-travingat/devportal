@@ -3,7 +3,7 @@ import Link from 'next/link';
 import { notFound } from 'next/navigation';
 import { ArrowLeft, Download } from 'lucide-react';
 import { FRAMER_COMPONENTS, getFramerComponent } from '@/lib/framer-components';
-import FramerPreview from '@/components/framer/FramerPreview';
+import FramerPreviewPanel from '@/components/framer/FramerPreviewPanel';
 
 export function generateStaticParams() {
   return FRAMER_COMPONENTS.map((c) => ({ slug: c.slug }));
@@ -45,10 +45,8 @@ async function FramerComponentPageContent({
         </a>
       </div>
 
-      <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-8 flex items-center justify-center min-h-[360px]">
-        <div className="w-full max-w-[480px]">
-          <FramerPreview slug={meta.slug} />
-        </div>
+      <div className="bg-zinc-900/40 border border-zinc-800/60 rounded-xl p-8 flex flex-col items-center justify-center min-h-[360px]">
+        <FramerPreviewPanel slug={meta.slug} resettable={meta.hasTestSession} />
       </div>
     </div>
   );

@@ -10,6 +10,8 @@ export type FramerComponentMeta = {
   title: string;
   description: string;
   file: string; // filename under src/components/framer/
+  /** Devportal-only: shows a "reset test session" button (the component itself is unchanged). */
+  hasTestSession?: boolean;
 };
 
 export const FRAMER_COMPONENTS: FramerComponentMeta[] = [
@@ -42,6 +44,7 @@ export const FRAMER_COMPONENTS: FramerComponentMeta[] = [
     title: 'Get Featured',
     description: 'Full email → OTP → application → status flow for Get Featured.',
     file: 'getfeaturedMono.tsx',
+    hasTestSession: true,
   },
 ];
 
