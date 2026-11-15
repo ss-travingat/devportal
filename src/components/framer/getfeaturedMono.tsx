@@ -258,6 +258,8 @@ const EmailVerificationForm = () => {
     }, [step, statusVariant])
 
     const prefillFrom = (u: any = {}, ec: any = {}) => {
+        u = u || {}
+        ec = ec || {}
         let fname = u.first_name
         let lname = u.last_name
         if (!fname && !lname && ec.name) {
