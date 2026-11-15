@@ -15,6 +15,7 @@ import {
   ExternalLink,
   PanelLeftClose,
   ChevronRight,
+  Component,
 } from 'lucide-react';
 import BrandLogo from './BrandLogo';
 import { useMobileNav } from './MobileNavContext';
@@ -26,6 +27,7 @@ const navItems = [
   { href: '/media-portal', label: 'Media Portal', icon: Film },
   { href: '/service-payments', label: 'Services', icon: CreditCard },
   { href: '/tech-docs', label: 'Tech Docs', icon: BookOpen },
+  { href: '/framer-components', label: 'Framer Components', icon: Component },
 ];
 
 const externalItems = [

@@ -10,6 +10,7 @@
   },
   "dependencies": {
     "@tanstack/react-query": "^5.105.1",
+    "countries-list": "^3.4.1",
     "gray-matter": "^4.0.3",
     "lucide-react": "^1.65.0",
     "mermaid": "^12.2.0",
