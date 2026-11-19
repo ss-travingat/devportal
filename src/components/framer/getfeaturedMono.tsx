@@ -1796,10 +1796,16 @@ export default function FramerFrontend(props) {
   to { transform: rotate(360deg); }
 }
 
-/* Figma "Form": 500x678 #111 panel, px 32 / pb 32, content centred. */
+/* Figma "Form": fixed 500x678 #111 panel, px 32 / pb 32, content centred
+   (centred over the narrower Framer column, like the app's status step). */
 .tf-status {
-  width: 100%;
-  min-height: 678px;
+  position: relative;
+  flex-shrink: 0;
+  width: 500px;
+  max-width: none;
+  height: 678px;
+  left: 50%;
+  transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1825,9 +1831,12 @@ export default function FramerFrontend(props) {
   box-sizing: border-box;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1023px) {
   .tf-status {
-    min-height: 0;
+    width: 100%;
+    height: auto;
+    left: 0;
+    transform: none;
     padding: 0;
     background: transparent;
     border-radius: 0;
