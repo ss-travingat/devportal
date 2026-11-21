@@ -1796,14 +1796,15 @@ export default function FramerFrontend(props) {
   to { transform: rotate(360deg); }
 }
 
-/* Figma "Form": fixed 500x678 #111 panel, px 32 / pb 32, content centred
-   (centred over the narrower Framer column, like the app's status step). */
+/* Figma "Form": 500px #111 panel, px 32 / pb 32, centred over the narrower
+   Framer column. No fixed height: the panel is as tall as its content, so the
+   Framer frame around it sets the height and it matches the Framer card
+   beside it (a fixed 678px made this column taller than that card). */
 .tf-status {
   position: relative;
   flex-shrink: 0;
   width: 500px;
   max-width: none;
-  height: 678px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -1834,7 +1835,6 @@ export default function FramerFrontend(props) {
 @media (max-width: 1023px) {
   .tf-status {
     width: 100%;
-    height: auto;
     left: 0;
     transform: none;
     padding: 0;
