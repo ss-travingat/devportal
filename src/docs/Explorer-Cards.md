@@ -3,7 +3,7 @@ title: Explorer Cards — Shareable Travel Passport
 description: How a traveler creates, edits and shares an Explorer Card, what the card stores versus what it reads from the user, and how card and profile photos and countries relate.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-09
+updatedAt: 2026-11-24
 ---
 
 # Explorer Cards — Shareable Travel Passport
@@ -62,7 +62,7 @@ flowchart TD
 ```
 
 - **No photo of its own:** the card shows the person's profile photo and cover, and follows any change to them.
-- **Photo uploaded on the card, with a profile:** the card keeps it, and the profile's photo is not changed.
+- **Photo uploaded on the card, with a profile:** the card keeps it, and the profile's photo is not changed. Saving the profile later does not touch the card's photos either (nor the crops drawn on them); only a card that has no photo of its own follows the profile's crop.
 - **Profile created after the card:** the profile starts with the card's photos if it was created without its own. After that the two are separate.
 - **Resubmitting the photo the form prefilled** doesn't count as uploading a new one.
 
@@ -95,9 +95,9 @@ There is one list of visited countries per person. Submitting the card form:
 
 | Endpoint | Purpose |
 | :--- | :--- |
-| `POST /api/explorercard` | Create or update the signed-in user's card (multipart; `visitedCountries` is a JSON list) |
-| `GET /api/explorercard/<id>` | Read a card by card id, profile id, user id, id prefix or handle |
-| `PATCH /api/explorercard/<id>` | Update the badge (owner or admin) |
+| `POST /api/explorercard` | Create or update the signed-in user's card (multipart; `visitedCountries` is a JSON list of up to 300 names or codes). Photos are sent as `existingProfileImage` / `existingCoverImage` URLs (the browser uploads to storage first); they must be `http(s)` links of at most 1,024 characters, so a temporary `blob:` address is refused. `cardStyle`, when sent, must be Classic, Minimal or Adventure. A rejected request saves nothing |
+| `GET /api/explorercard/<id>` | Read a card by card id, profile id, user id, id prefix or handle. Public (it backs the share page), so the response has **no email**: only the owner and admins get it. A deleted account's card is not served |
+| `PATCH /api/explorercard/<id>` | Update the Founding Explorer badge (`show_badge`, a real boolean). **Admin only**: the card editor never offers the badge, so the owner can't grant it to themselves |
 | `GET /api/explorercard/prefill` | Prefill data from the user's Featured Profile |
 
 The card returns `visited_countries` as display names, `card_style` capitalised (`Classic`), and `cover_crop_data` keyed by style (`{"Classic": ..., "Minimal": ..., "Adventure": ...}`).
