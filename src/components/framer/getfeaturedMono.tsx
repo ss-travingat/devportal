@@ -1382,7 +1382,7 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
         const variant = statusVariantFor(res.featured)
         if (variant === "approved") {
             bypassLeaveGuard()
-            window.location.href = APP_URL + "/get-featured/confirmed"
+            window.location.href = APP_URL + "/get-featured/create"
             return
         }
         if (variant) {
