@@ -309,7 +309,12 @@ const COUNTRY_LIST = [
     ["ZW","Zimbabwe"],
 ].map(([code, name, aliases]) => ({ code, name, aliases }))
 
-const countryOptions = [...COUNTRY_LIST].sort((a, b) => a.name.localeCompare(b.name))
+// Organisations, Antarctica and uninhabited territories are not places someone
+// is from. Same set as NON_COUNTRY_CODES in src/lib/countries.ts (this export
+// can't import it) -- keep the two in step.
+const NON_COUNTRY_CODES = new Set(["AQ", "ASEAN", "BV", "CEFTA", "CP", "DG", "EAC", "TF", "HM", "ARAB", "PC", "UN", "UM"])
+
+const countryOptions = COUNTRY_LIST.filter((c) => !NON_COUNTRY_CODES.has(String(c.code).toUpperCase())).sort((a, b) => a.name.localeCompare(b.name))
 
 function normalizeCountryName(text: string): string {
     if (!text) return ""
