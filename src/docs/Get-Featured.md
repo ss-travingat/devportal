@@ -3,7 +3,7 @@ title: Get Featured — Creator Application & Profile Builder
 description: The path from applying to a published Featured Profile — the status lifecycle, the application, the profile-builder wizard, photo uploads, and admin review with its emails.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-09
+updatedAt: 2026-11-25
 ---
 
 # Get Featured — Creator Application & Profile Builder
@@ -54,6 +54,18 @@ stateDiagram-v2
 The traveler verifies their email with a one-time code, then sends a short form: name, home country, number of countries visited, and their social or portfolio links. The fields are prefilled from any existing card or profile. A snapshot of exactly what they sent is kept on the waitlist entry (`featured_application`), so later edits elsewhere don't change what the reviewer sees.
 
 The team sees applications in admin under **Featured Requests**. Approving one sends "You've been selected to get featured on Travingat" with a link to the profile builder. Declining sends an email explaining why.
+
+The link is `app.travingat.com/get-featured/auth?token=…`, a one-time token that lasts 7 days (sending the email again replaces it). It always leads to the email it was sent to, never into whichever account is signed in on that browser:
+
+| On the browser | Opening the link |
+| --- | --- |
+| Nobody signed in, link unused | Signs the invited email in and opens the builder (the token is used up) |
+| The invited email already signed in | Opens the builder; the token stays unused |
+| A different email signed in | Signs that email out (its session ends on the server too) and asks the invited email for a one-time code, prefilled; then opens its builder |
+| Link already used or expired | Asks the invited email for a code, prefilled |
+| Unknown link | Signed out, to the builder's sign-in |
+
+The landing route asks the backend which email a token belongs to first (`POST /api/auth/magic-link-info`, which doesn't use it up), and it expires every copy of the session cookies (host-only and `Domain=.travingat.com`) before setting new ones. A browser holding both used to send the older one first, so the link could land in the previous account.
 
 ---
 
