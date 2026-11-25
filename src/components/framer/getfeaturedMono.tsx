@@ -14,6 +14,8 @@ import React, { useState, useRef, useEffect } from "react"
 
 // The Framer site lives on a different origin, so every call goes to the app.
 const APP_URL = "https://app.travingat.com"
+// "Explore profiles" goes to the marketing site, not the app's old /featured-profiles.
+const PROFILES_URL = "https://travingat.com/profiles"
 const CDN_ASSETS = "https://cdn.travingat.com/landingpage-assets"
 
 // Same images the app page shows. The status illustrations aren't on the CDN
@@ -1064,7 +1066,7 @@ function StatusStep({ variant, email, onUseDifferentEmail }) {
                         {isApplied && email && <p className="tf-s-email">{email}</p>}
                     </div>
                     <div className="tf-s-ctaGroup">
-                        <a href={isApplied ? APP_URL + "/featured-profiles" : APP_URL + "/"} className="tf-s-cta">
+                        <a href={isApplied ? PROFILES_URL : APP_URL + "/"} className="tf-s-cta">
                             {isApplied ? "Explore profiles" : "Done!"}
                         </a>
                         {isApplied && (
@@ -1422,8 +1424,10 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
 
     // "Apply with a different email" / "Not you?": end the session and go
     // back to a blank email step so the next address starts a fresh OTP.
-    const handleLogout = async () => {
-        await postJson("/api/auth/logout-user", {})
+    const handleLogout = () => {
+        // Reset the screen first so the button responds immediately, even if
+        // the sign-out request is slow or fails (cross-site cookies).
+        postJson("/api/auth/logout-user", {})
         setSignedIn(false)
         setStatusVariant(null)
         setError(null)
