@@ -59,10 +59,9 @@ The link is `app.travingat.com/get-featured/auth?token=…`, a one-time token th
 
 | On the browser | Opening the link |
 | --- | --- |
-| Nobody signed in, link unused | Signs the invited email in and opens the builder (the token is used up) |
+| Link unused (nobody signed in, or a different email signed in) | Signs any other email out (its session ends on the server too), signs the invited email in and opens the builder (the token is used up). No code: the link proves the email |
 | The invited email already signed in | Opens the builder; the token stays unused |
-| A different email signed in | Signs that email out (its session ends on the server too) and asks the invited email for a one-time code, prefilled; then opens its builder |
-| Link already used or expired | Asks the invited email for a code, prefilled |
+| Link already used or expired | Signs any other email out and asks the invited email for a one-time code, prefilled |
 | Unknown link | Signed out, to the builder's sign-in |
 
 The landing route asks the backend which email a token belongs to first (`POST /api/auth/magic-link-info`, which doesn't use it up), and it expires every copy of the session cookies (host-only and `Domain=.travingat.com`) before setting new ones. A browser holding both used to send the older one first, so the link could land in the previous account.
