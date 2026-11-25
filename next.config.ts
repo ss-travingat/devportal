@@ -5,6 +5,11 @@ const nextConfig: NextConfig = {
   experimental: {
     agentUpgrade: "security",
   },
+  // Internal tool: tell search engines not to index anything served here,
+  // including static files the proxy doesn't run on.
+  async headers() {
+    return [{ source: "/:path*", headers: [{ key: "X-Robots-Tag", value: "noindex, nofollow, noarchive" }] }];
+  },
   cacheComponents: true,
   partialPrefetching: true,
   turbopack: {

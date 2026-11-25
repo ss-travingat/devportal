@@ -29,6 +29,14 @@ async function verifyAdminSession(cookie: string): Promise<boolean> {
  * existence), so a forged or expired cookie is rejected here.
  */
 export async function proxy(req: NextRequest) {
+  // Internal tool: every response (pages, redirects to /login, 401s) carries
+  // noindex so search engines drop anything they indexed before auth existed.
+  const res = await handle(req);
+  res.headers.set('X-Robots-Tag', 'noindex, nofollow, noarchive');
+  return res;
+}
+
+async function handle(req: NextRequest) {
   const requestHeaders = new Headers(req.headers);
   const url = req.nextUrl;
 

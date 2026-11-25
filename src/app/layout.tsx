@@ -21,6 +21,8 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Devportal - Developer Platform Infrastructure",
   description: "Centralized management for developer infrastructure, media pipelines, and cloud services.",
+  // Internal tool: keep every page (including /login) out of search results.
+  robots: { index: false, follow: false, nocache: true, googleBot: { index: false, follow: false } },
 };
 
 export default function RootLayout({
