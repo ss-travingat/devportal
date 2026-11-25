@@ -3,7 +3,7 @@ title: Data Model — Users, Profiles & Explorer Cards
 description: The PostgreSQL schema behind every person on Travingat — which table owns which field, how profiles and Explorer Cards share one user record, the photo and country rules, and what is safe to delete.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-09
+updatedAt: 2026-11-25
 ---
 
 # Data Model — Users, Profiles & Explorer Cards
@@ -255,6 +255,14 @@ There is one list, stored as ISO codes on `users_user.visited_countries`. The pr
 
 - **with a profile**, only ever *adds* countries, because countries carry the profile's photo folders. Each new country gets an empty folder on the profile.
 - **without a profile**, saves the list exactly as submitted.
+
+### Places that are not countries
+
+Organisations, Antarctica and uninhabited territories are never a place someone is from, is in, or has visited: `AQ` Antarctica, `BV` Bouvet Island, `HM` Heard Island and McDonald Islands, `CP` Clipperton Island, `DG` Diego Garcia, `TF` French Southern Territories, `UM` US Minor Outlying Islands, and the organisations `CEFTA`, `ASEAN`, `EAC`, `ARAB` (Arab League), `PC` (Pacific Community), `UN`. (`EU` is the continent "Europe" in the frontends' list and stays.)
+
+- **Frontends** (landing and admin, `src/lib/countries.ts`, `NON_COUNTRY_CODES`): every picker, the home-country lists and the place search behind "Homeland" / "Currently in" leave them out. They stay in `COUNTRY_LIST` so an old saved value still shows a name. A country that already holds the owner's photos stays visible, locked, so the photos aren't orphaned. The Framer export carries its own copy of the set.
+- **Backend** (`core/countries.py`): visited countries never contain them (`COUNTRY_DATA` doesn't list them, so `resolve_country_code` drops them). Home country and current location are free text, so the Get Featured application, a new Explorer Card and every profile create/update refuse them with a 400 (`invalid_country`).
+- **Data**: the visited lists of six users were cleaned in production on 2026-11-25 (dump taken first).
 
 ### Card crops
 
