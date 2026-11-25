@@ -2185,13 +2185,12 @@ const CSS = `
   background: transparent;
 }
 @media (min-width: 1024px) {
-  /* Figma "Form": 500x678 #111 panel, centred over the 448px column. */
+  /* Figma "Form": 500px-wide #111 panel (height follows the content, never fixed), centred over the 448px column. */
   .tf-s-panel {
     background: #111;
     border-radius: 20px;
     width: 500px;
     max-width: none;
-    height: 678px;
     padding: 0 32px 32px;
     left: 50%;
     transform: translateX(-50%);
