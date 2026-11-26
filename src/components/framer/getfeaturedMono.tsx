@@ -1309,6 +1309,13 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
     // ignored when the cookie isn't sent.
     useEffect(() => {
         let cancelled = false
+        // The approval email's link sends someone who has to verify here, with
+        // their email after "#". Fill it in, then drop it from the address bar.
+        const invited = new URLSearchParams(window.location.hash.slice(1)).get("email")
+        if (invited) {
+            setEmail(invited)
+            window.history.replaceState(window.history.state, "", window.location.pathname + window.location.search)
+        }
         fetch(APP_URL + "/api/auth/me", { credentials: "include" })
             .then((r) => (r.ok ? r.json() : null))
             .then(async (data) => {

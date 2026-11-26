@@ -69,14 +69,17 @@ The rules live in `features/getfeatured/session-status.ts` and are mirrored in t
 
 ### The approval link
 
-The link is `app.travingat.com/get-featured/auth?token=…`, a one-time token that lasts 7 days (sending the email again replaces it). It always leads to the email it was sent to, never into whichever account is signed in on that browser:
+The link is `app.travingat.com/get-featured/auth?token=…`, a one-time token that lasts 7 days (sending the email again replaces it). It signs in the email it was sent to, never whichever account is signed in on that browser, and **always ends on `travingat.com/get-featured`**, which shows **Continue your profile**. The builder opens only from "Continue editing", at the last saved step.
 
 | On the browser | Opening the link |
 | --- | --- |
-| Link unused (nobody signed in, or a different email signed in) | Signs any other email out (its session ends on the server too), signs the invited email in and opens the builder (the token is used up). No code: the link proves the email |
-| The invited email already signed in | Opens the builder; the token stays unused |
-| Link already used or expired | Signs any other email out and asks the invited email for a one-time code, prefilled |
-| Unknown link | Signed out, to the builder's sign-in |
+| The invited email already signed in | Straight to the page; the token stays unused |
+| A different email signed in | Signs it out (its session ends on the server too) and asks the invited email for a one-time code, prefilled. The token stays unused |
+| Nobody signed in, link unused | Signs the invited email in (the token is used up). No code: the link proves the email |
+| Nobody signed in, link already used or expired | Asks the invited email for a one-time code, prefilled |
+| Unknown link, or an email that is no longer approved | The page, signed out |
+
+For the code cases the email is passed as `#email=…`, which stays in the browser; the Framer component fills it in and removes it from the address bar. On any host other than `app.travingat.com` (local, test servers) the link ends on that app's own `/get-featured` instead.
 
 The landing route asks the backend which email a token belongs to first (`POST /api/auth/magic-link-info`, which doesn't use it up), and it expires every copy of the session cookies (host-only and `Domain=.travingat.com`) before setting new ones. A browser holding both used to send the older one first, so the link could land in the previous account.
 
