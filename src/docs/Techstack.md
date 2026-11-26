@@ -3,7 +3,7 @@ title: Architecture — Production Infrastructure
 description: How Travingat runs in production — services and domains, the Contabo host and its containers, the database and backups, storage buckets, background jobs, and security settings.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-10
+updatedAt: 2026-11-26
 ---
 
 # Architecture — Production Infrastructure
@@ -159,7 +159,8 @@ Browsers upload straight to R2 with presigned URLs, so files never pass through 
 | Explorer Card create | 10 / hour (5 / hour per email) |
 | Explorer Card read | 60 / minute |
 | Explorer Card update | 30 / minute |
-| Upload presign | 150 / hour per IP |
+| Upload presign | 1,000 / hour per signed-in user (per IP for admin sessions) |
+| Media Engine optimize | 1,000 / hour per signed-in user |
 
 **Observability**
 - JSON logs carry a request ID (`X-Request-ID`) from `RequestIDMiddleware`.

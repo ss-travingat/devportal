@@ -3,7 +3,7 @@ title: Media Engine — Processing Pipeline
 description: How every photo uploaded to Travingat becomes a small, web-ready AVIF with a thumbnail and blurhash — ingestion paths, data model, encoding settings, queues, scheduled scans, live status and recovery.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-10
+updatedAt: 2026-11-26
 ---
 
 # Media Engine — Processing Pipeline
@@ -71,6 +71,8 @@ erDiagram
         int original_height
         string blurhash
         string remote_key "R2 key, indexed"
+        string source_key "HEIC original under sources/, nullable"
+        json crop "crop applied to the source, 0-1 fractions, nullable"
         datetime deleted_at "recycle bin"
         text delete_reason
     }
@@ -134,6 +136,49 @@ AV1 (libsvtav1) and Opus, capped at 1920×1080. Files under 2 MB are stored as-i
 | Video optimisation threshold | 2 MB |
 | Raw file retention | 24 hours |
 
+### HEIC photos (profile and cover photos)
+
+Chrome, Edge and Firefox can't display HEIC. For **profile and cover photos** (the Explorer Card form, the Get Featured profile step, and the admin profile editor's avatar and cover), the browser only makes a quick JPEG to crop on. The HEIC itself is uploaded unchanged, and the media engine makes the AVIF from it.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor User
+    participant App as Browser
+    participant API as Backend
+    participant R2 as Cloudflare R2
+    User->>App: Picks a HEIC photo
+    App->>API: Presign (purpose "source")
+    App->>R2: Upload the original to sources/ (in the background)
+    App->>App: Quick JPEG preview (2048 px, 80%)
+    User->>App: Crops the preview, saves
+    App->>R2: Upload the preview (or its crop) as the photo itself
+    App->>API: Optimize with sourceKey (+ crop)
+    API->>R2: AVIF made from the original overwrites the preview, then the original is deleted
+```
+
+- **How it's detected:** from the file's bytes, not its MIME type or file name.
+- **The preview:**
+  - **How it's made:** Safari decodes HEIC itself. Other browsers lazy-load `heic-to` (libheif in WebAssembly, LGPL-3.0, about 3 MB, run in a worker), which is only downloaded when someone picks a HEIC.
+  - **Size and colour:** it's capped at 2048 px and saved at 80% quality, since it's only for cropping. P3 colours are converted for it. P3 is recognised from the colour profile's primaries, not its name (Apple calls it "Display P3", Samsung "DCI-P3 D65"), and the colour box is found wherever it sits in the file (Samsung puts it at the end).
+  - **Timing:** in Chrome on an M-series Mac, a 12 MP photo takes about 1 s and a 50 MP Samsung photo about 3 s. Slow phones take longer.
+- **The preview is temporary.** It sits at the photo's real key, so the photo shows everywhere straight away. Processing overwrites it with the AVIF, the same way the country and collection thumbnail previews work.
+- **Cropping:** the crop is made on the preview, as for any photo.
+  - **Get Featured and the admin editor** bake the crop into the photo. The optimize call also sends it as fractions of the photo (`crop: {x, y, width, height}`, each 0–1), and the server applies it to the original, so the result isn't limited to the preview's resolution.
+  - **The Explorer Card** applies its crop when it's displayed, as before. Its two copies of each photo come from one uploaded original.
+- **Orientation, colour and metadata on the server:**
+  - It applies the photo's rotation and converts it to sRGB. That covers an embedded ICC profile (iPhone, Samsung) and an nclx Display P3 tag, which libvips would otherwise ignore.
+  - It drops the photo's EXIF, XMP and IPTC data, which often includes GPS coordinates, before encoding.
+  - This only applies to HEIC sources. Other uploads still go through unchanged.
+- **Storage:** originals sit under `sources/<prefix>/<uuid>.heic` and are deleted once their AVIF is made. The hourly raw-media cleanup also deletes any older than 24 hours, which are photos picked and then cancelled. If the original is already gone when processing runs, the preview is processed instead.
+- **Limits:** a HEIC is held to the same 20 MB as other photos.
+- **Where the code lives:**
+  - Browser: `landing/src/lib/heic.ts` and `heic-preview.ts`, with identical copies in `travingat-admin/src/lib/`.
+  - Server: `PresignUploadAPIView` (the `purpose: "source"` branch) and `MediaEngineOptimizeAPIView` in `core/views.py`.
+  - Processing: `ImageProcessor.prepare_source` in the backend, and `MediaAsset.source_key` / `crop`.
+
+Other photo pickers (country, collection, about and bulk uploads) don't take HEIC yet.
+
 ---
 
 ## 5. Queues and retries
@@ -188,7 +233,7 @@ sequenceDiagram
 
 | Job | Schedule | Purpose |
 | :--- | :--- | :--- |
-| Raw media cleanup | hourly | Removes processed raw uploads older than 24 hours |
+| Raw media cleanup | hourly | Removes processed raw uploads, and HEIC originals left under `sources/`, older than 24 hours |
 | Unoptimised media scan | every 2 hours | Queues any profile, collection or card photo that isn't AVIF yet |
 | Missing thumbnail scan | nightly, 04:00 | Queues 720px thumbnails for optimised images that lack one |
 | Storage reconciliation | nightly, 03:00 | Compares per-user storage counters with R2 (dry run) |

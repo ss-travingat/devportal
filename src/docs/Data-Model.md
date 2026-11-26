@@ -3,7 +3,7 @@ title: Data Model — Users, Profiles & Explorer Cards
 description: The PostgreSQL schema behind every person on Travingat — which table owns which field, how profiles and Explorer Cards share one user record, the photo and country rules, and what is safe to delete.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-25
+updatedAt: 2026-11-26
 ---
 
 # Data Model — Users, Profiles & Explorer Cards
@@ -191,6 +191,8 @@ erDiagram
         uuid id PK
         uuid user_id FK "nullable"
         string remote_key "R2 object key"
+        string source_key "HEIC original, nullable"
+        json crop "nullable"
         string status
         string blurhash
         datetime deleted_at "recycle bin"
