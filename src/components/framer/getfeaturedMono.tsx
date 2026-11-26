@@ -18,14 +18,12 @@ const APP_URL = "https://app.travingat.com"
 const PROFILES_URL = "https://travingat.com/profiles"
 const CDN_ASSETS = "https://cdn.travingat.com/landingpage-assets"
 
-// Same images the app page shows. The status illustrations aren't on the CDN
-// yet, so they come through the app's own image optimizer (exactly what
-// next/image serves on /get-featured).
+// Same images the app page shows. They aren't on the CDN, so they come through
+// the app's own image optimizer (exactly what next/image serves on /get-featured).
 const appImage = (path: string, width = 384) =>
     `${APP_URL}/_next/image?url=${encodeURIComponent(path)}&w=${width}&q=75`
-const EMAIL_ICON = CDN_ASSETS + "/icons/img.png"
-const SUBMITTED_ICON = appImage("/icons/adventure-backpack.png")
-const APPLIED_ICON = appImage("/icons/application-pending.png")
+const statusIcon = (name: string) => appImage("/icons/get-featured/" + name + ".png")
+const EMAIL_ICON = statusIcon("email")
 const ERROR_ICON = appImage("/images/errors/something-went-wrong.png", 750)
 // Where "Check system status" goes. Leave empty to hide the link (same as the
 // app, which reads NEXT_PUBLIC_STATUS_PAGE_URL).
@@ -59,7 +57,6 @@ const COUNTRY_LIST = [
     ["BH","Bahrain"],
     ["BD","Bangladesh"],
     ["BB","Barbados"],
-    ["ES-PV","Basque Country"],
     ["BY","Belarus"],
     ["BE","Belgium"],
     ["BZ","Belize"],
@@ -81,8 +78,6 @@ const COUNTRY_LIST = [
     ["KH","Cambodia"],
     ["CM","Cameroon"],
     ["CA","Canada"],
-    ["IC","Canary Islands"],
-    ["ES-CT","Catalonia"],
     ["KY","Cayman Islands"],
     ["CF","Central African Republic"],
     ["CEFTA","Central European Free Trade Agreement"],
@@ -129,7 +124,6 @@ const COUNTRY_LIST = [
     ["PF","French Polynesia"],
     ["TF","French Southern Territories",["French Southern and Antarctic Lands"]],
     ["GA","Gabon"],
-    ["ES-GA","Galicia"],
     ["GM","Gambia"],
     ["GE","Georgia"],
     ["DE","Germany"],
@@ -263,7 +257,7 @@ const COUNTRY_LIST = [
     ["GS","South Georgia and the South Sandwich Islands",["South Georgia"]],
     ["KR","South Korea",["Republic of Korea","Korea"]],
     ["SS","South Sudan"],
-    ["ES","Spain"],
+    ["ES","Spain",["Catalonia","Basque Country","Galicia","Canary Islands"]],
     ["LK","Sri Lanka"],
     ["PS","State of Palestine",["Palestine"]],
     ["SD","Sudan"],
@@ -309,10 +303,10 @@ const COUNTRY_LIST = [
     ["ZW","Zimbabwe"],
 ].map(([code, name, aliases]) => ({ code, name, aliases }))
 
-// Organisations, Antarctica and uninhabited territories are not places someone
+// Organisations, a continent, Antarctica and uninhabited territories are not places someone
 // is from. Same set as NON_COUNTRY_CODES in src/lib/countries.ts (this export
 // can't import it) -- keep the two in step.
-const NON_COUNTRY_CODES = new Set(["AQ", "ASEAN", "BV", "CEFTA", "CP", "DG", "EAC", "TF", "HM", "ARAB", "PC", "UN", "UM"])
+const NON_COUNTRY_CODES = new Set(["AQ", "ASEAN", "BV", "CEFTA", "CP", "DG", "EAC", "TF", "HM", "ARAB", "PC", "UN", "UM", "EU", "GS", "IO"])
 
 const countryOptions = COUNTRY_LIST.filter((c) => !NON_COUNTRY_CODES.has(String(c.code).toUpperCase())).sort((a, b) => a.name.localeCompare(b.name))
 
@@ -377,7 +371,7 @@ const getInitialCountryCode = (countryValue: string | null) => {
 
 // ---- Status ----
 
-type StatusVariant = "submitted" | "applied" | "approved" | "reapply_limit"
+type StatusVariant = "submitted" | "applied" | "continue" | "in_review" | "live" | "approved" | "reapply_limit"
 
 // Backend `featured` block: { applied, approved }.
 const statusVariantFor = (featured): StatusVariant | null =>
@@ -392,6 +386,18 @@ const STATUS_COPY: Record<StatusVariant, { title: string; body: string }> = {
         title: "You’ve already applied",
         body: "Your application is with our team. We’ll email you if you’re selected to be featured.",
     },
+    continue: {
+        title: "Continue your profile",
+        body: "Your progress is saved. Pick up where you left off.",
+    },
+    in_review: {
+        title: "Your profile has been submitted!",
+        body: "We'll review your profile and email you a link once it's published. If any changes are needed, we'll let you know by email.",
+    },
+    live: {
+        title: "Your profile is live",
+        body: "Your featured profile has been approved and published. Contact us at hello@travingat.com if something needs to change.",
+    },
     approved: {
         title: "You've been selected!",
         body: "Your application was approved. Continue setting up your featured profile; your saved progress is kept.",
@@ -400,6 +406,42 @@ const STATUS_COPY: Record<StatusVariant, { title: string; body: string }> = {
         title: "Application limit reached",
         body: "You've reached the maximum number of reapplications. Reach out to us directly and we'll review your case personally.",
     },
+}
+
+// A signed-in, approved applicant is never redirected on arrival. Mirrors
+// src/features/getfeatured/session-status.ts. `data` is the body of
+// GET /api/get-featured/prefill, or null if it couldn't be read.
+const approvedStatusFrom = (data: any): { variant: StatusVariant; handle?: string } => {
+    const reviewStatus = data?.prefill?.review_status
+    const handle = String(data?.prefill?.handle || "").replace(/^@/, "") || undefined
+    if (reviewStatus === "ready_for_review") return { variant: "in_review" }
+    // Same rule as the builder's "profile is live" wall.
+    if (reviewStatus === "published" && data?.can_edit !== true) return { variant: "live", handle }
+    // A profile row exists only once something has been saved in the builder.
+    return { variant: data?.has_existing_profile ? "continue" : "approved" }
+}
+
+// States with an illustration, a white action and (mostly) a way to switch email.
+const illustratedState = (variant: StatusVariant, handle?: string) => {
+    switch (variant) {
+        case "submitted":
+            return { icon: statusIcon("all-set"), action: "Done!", href: APP_URL + "/", switchEmail: null }
+        case "applied":
+            return { icon: statusIcon("already-applied"), action: "Explore profiles", href: PROFILES_URL, switchEmail: "Apply with a different email" }
+        case "continue":
+            return { icon: statusIcon("saved-progress"), action: "Continue editing", href: APP_URL + "/get-featured/create", switchEmail: "Use a different email" }
+        case "in_review":
+            return { icon: statusIcon("all-set"), action: "Explore profiles", href: PROFILES_URL, switchEmail: "Use a different email" }
+        case "live":
+            return {
+                icon: statusIcon("all-set"),
+                action: handle ? "View your profile" : "Explore profiles",
+                href: handle ? APP_URL + "/" + handle : PROFILES_URL,
+                switchEmail: "Use a different email",
+            }
+        default:
+            return null
+    }
 }
 
 // ---- Links ----
@@ -1045,38 +1087,28 @@ function FormStep({
     )
 }
 
-function StatusStep({ variant, email, onUseDifferentEmail }) {
+function StatusStep({ variant, email, profileHandle, onUseDifferentEmail }) {
     const { title, body } = STATUS_COPY[variant]
+    const illustrated = illustratedState(variant, profileHandle)
 
-    // Illustrated states (just submitted / already applied): illustration,
-    // message and a white CTA. "Already applied" also offers "Apply with a
-    // different email" (Figma 19968:72031) so a signed-in user isn't stuck.
-    if (variant === "submitted" || variant === "applied") {
-        const isApplied = variant === "applied"
+    // Illustration, message and a white CTA (Figma 19968:72031, 20070:75158).
+    if (illustrated) {
         return (
             <div className="tf-s-panel">
                 <div className="tf-s-content">
-                    <div className="tf-s-iconBox">
-                        <div className={`tf-s-imgWrap ${isApplied ? "tf-s-pendingWrap" : "tf-s-backpackWrap"}`}>
-                            <img
-                                src={isApplied ? APPLIED_ICON : SUBMITTED_ICON}
-                                alt=""
-                                className={isApplied ? "tf-s-pendingImg" : "tf-s-backpackImg"}
-                            />
-                        </div>
-                    </div>
+                    <img src={illustrated.icon} alt="" className="tf-s-icon" />
                     <div className="tf-s-text">
                         <p className="tf-s-title">{title}</p>
                         <p className="tf-s-body">{body}</p>
-                        {isApplied && email && <p className="tf-s-email">{email}</p>}
+                        {variant !== "submitted" && email && <p className="tf-s-email">{email}</p>}
                     </div>
                     <div className="tf-s-ctaGroup">
-                        <a href={isApplied ? PROFILES_URL : APP_URL + "/"} className="tf-s-cta">
-                            {isApplied ? "Explore profiles" : "Done!"}
+                        <a href={illustrated.href} className="tf-s-cta">
+                            {illustrated.action}
                         </a>
-                        {isApplied && (
+                        {illustrated.switchEmail && (
                             <button type="button" onClick={onUseDifferentEmail} className="tf-s-ctaSecondary">
-                                Apply with a different email
+                                {illustrated.switchEmail}
                             </button>
                         )}
                     </div>
@@ -1172,6 +1204,7 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
     const [email, setEmail] = useState("")
     const [signedIn, setSignedIn] = useState(false)
     const [statusVariant, setStatusVariant] = useState<StatusVariant | null>(null)
+    const [profileHandle, setProfileHandle] = useState<string | undefined>(undefined)
     const [step, setStep] = useState<"email" | "otp" | "application" | "status">("email")
     const [otp, setOtp] = useState(["", "", "", ""])
     const [selectedCountry, setSelectedCountry] = useState<string | null>(null)
@@ -1270,19 +1303,29 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
         if (Array.isArray(u.links)) setLinks(u.links)
     }
 
-    // Returning visitors still signed in on the app skip straight to their
-    // status (or the prefilled form), like /get-featured does with the
-    // server-side session. Silently ignored when the cookie isn't sent.
+    // Returning visitors still signed in on the app see their status (or the
+    // prefilled form), like /get-featured does with the server-side session.
+    // Approved users choose to continue; they are not redirected. Silently
+    // ignored when the cookie isn't sent.
     useEffect(() => {
         let cancelled = false
         fetch(APP_URL + "/api/auth/me", { credentials: "include" })
             .then((r) => (r.ok ? r.json() : null))
-            .then((data) => {
+            .then(async (data) => {
                 const u = data?.user
                 if (cancelled || !u?.email) return
                 setEmail(u.email)
                 setSignedIn(true)
-                const variant = statusVariantFor(data.featured)
+                let variant = statusVariantFor(data.featured)
+                if (variant === "approved") {
+                    const prefill = await fetch(APP_URL + "/api/get-featured/prefill", { credentials: "include" })
+                        .then((r) => (r.ok ? r.json() : null))
+                        .catch(() => null)
+                    if (cancelled) return
+                    const approved = approvedStatusFrom(prefill)
+                    variant = approved.variant
+                    setProfileHandle(approved.handle)
+                }
                 if (variant) {
                     setStatusVariant(variant)
                     setStep("status")
@@ -1301,14 +1344,6 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
             cancelled = true
         }
     }, [])
-
-    // Approved applicants continue in the app.
-    useEffect(() => {
-        if (step === "status" && statusVariant === "approved") {
-            bypassLeaveGuard()
-            window.location.href = APP_URL + "/get-featured/create"
-        }
-    }, [step, statusVariant])
 
     const isValidEmail = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
@@ -1435,6 +1470,7 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
         postJson("/api/auth/logout-user", {})
         setSignedIn(false)
         setStatusVariant(null)
+        setProfileHandle(undefined)
         setError(null)
         setIsLoading(false)
         setResendCooldown(0)
@@ -1489,8 +1525,14 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
     }
 
     if (step === "status" && statusVariant) {
-        if (statusVariant === "approved") return null
-        return <StatusStep variant={statusVariant} email={email} onUseDifferentEmail={handleLogout} />
+        return (
+            <StatusStep
+                variant={statusVariant}
+                email={email}
+                profileHandle={profileHandle}
+                onUseDifferentEmail={handleLogout}
+            />
+        )
     }
 
     const backWarningModal = showBackWarning ? (
@@ -1715,14 +1757,8 @@ const CSS = `
   flex-shrink: 0;
 }
 .tf-iconImg {
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  transform: translate(-50%, -50%);
-  width: 152.625px;
-  height: 121.557px;
-  max-width: none;
-  object-fit: cover;
+  width: 100%;
+  height: 100%;
   pointer-events: none;
 }
 .tf-title {
@@ -2209,32 +2245,13 @@ const CSS = `
   width: 100%;
   padding: 32px;
 }
-.tf-s-iconBox {
-  position: relative;
+.tf-s-icon {
   width: 160px;
   height: 160px;
   flex-shrink: 0;
-  overflow: hidden;
-}
-.tf-s-imgWrap {
-  position: absolute;
-  left: calc(50% - 4px);
-  top: calc(50% + 6px);
-  transform: translate(-50%, -50%);
-  overflow: hidden;
   pointer-events: none;
-}
-.tf-s-backpackWrap { width: 192px; height: 192px; }
-.tf-s-pendingWrap { width: 162px; height: 162px; }
-.tf-s-backpackImg, .tf-s-pendingImg {
-  position: absolute;
-  width: 100%;
-  height: 100%;
-  max-width: none;
   user-select: none;
 }
-.tf-s-backpackImg { left: 0; top: -1.1%; }
-.tf-s-pendingImg { left: 3.56%; top: 1.2%; }
 .tf-s-text {
   display: flex;
   flex-direction: column;

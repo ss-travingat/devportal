@@ -3,7 +3,7 @@ title: Get Featured — Creator Application & Profile Builder
 description: The path from applying to a published Featured Profile — the status lifecycle, the application, the profile-builder wizard, photo uploads, and admin review with its emails.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-25
+updatedAt: 2026-11-26
 ---
 
 # Get Featured — Creator Application & Profile Builder
@@ -54,6 +54,21 @@ stateDiagram-v2
 The traveler verifies their email with a one-time code, then sends a short form: name, home country, number of countries visited, and their social or portfolio links. The fields are prefilled from any existing card or profile. A snapshot of exactly what they sent is kept on the waitlist entry (`featured_application`), so later edits elsewhere don't change what the reviewer sees.
 
 The team sees applications in admin under **Featured Requests**. Approving one sends "You've been selected to get featured on Travingat" with a link to the profile builder. Declining sends an email explaining why.
+
+### Coming back to the application page
+
+Visiting `/get-featured` (on `app.travingat.com`, or the Framer component on `travingat.com`) with an active session never redirects to the builder. An approved applicant sees a state chosen from `GET /api/get-featured/prefill`:
+
+| Builder data | Shown |
+| --- | --- |
+| Something saved, still editable | **Continue your profile**, with "Continue editing" and "Use a different email" |
+| Nothing saved yet, or the data can't be read | **You've been selected!**, with "Complete your profile" |
+| `ready_for_review` | **Your profile has been submitted!** |
+| `published` and locked (`can_edit` false) | **Your profile is live**, with a link to it |
+
+Entering a one-time code on that page still opens the builder for an approved email. The rules live in `features/getfeatured/session-status.ts` and are mirrored in the Framer component. The illustrations are in `landing/public/icons/get-featured/`.
+
+### The approval link
 
 The link is `app.travingat.com/get-featured/auth?token=…`, a one-time token that lasts 7 days (sending the email again replaces it). It always leads to the email it was sent to, never into whichever account is signed in on that browser:
 
