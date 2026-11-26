@@ -371,11 +371,13 @@ const getInitialCountryCode = (countryValue: string | null) => {
 
 // ---- Status ----
 
-type StatusVariant = "submitted" | "applied" | "continue" | "in_review" | "live" | "approved" | "reapply_limit"
+type StatusVariant = "submitted" | "applied" | "continue" | "in_review" | "live" | "reapply_limit"
 
-// Backend `featured` block: { applied, approved }.
-const statusVariantFor = (featured): StatusVariant | null =>
-    featured?.approved ? "approved" : featured?.applied ? "applied" : null
+// Backend `featured` block: { applied, approved }. "continue" is only the
+// default for approved users: their builder status may turn it into
+// "in_review" or "live" (see approvedStatusFrom).
+const statusVariantFor = (featured): "continue" | "applied" | null =>
+    featured?.approved ? "continue" : featured?.applied ? "applied" : null
 
 const STATUS_COPY: Record<StatusVariant, { title: string; body: string }> = {
     submitted: {
@@ -398,17 +400,13 @@ const STATUS_COPY: Record<StatusVariant, { title: string; body: string }> = {
         title: "Your profile is live",
         body: "Your featured profile has been approved and published. Contact us at hello@travingat.com if something needs to change.",
     },
-    approved: {
-        title: "You've been selected!",
-        body: "Your application was approved. Continue setting up your featured profile; your saved progress is kept.",
-    },
     reapply_limit: {
         title: "Application limit reached",
         body: "You've reached the maximum number of reapplications. Reach out to us directly and we'll review your case personally.",
     },
 }
 
-// A signed-in, approved applicant is never redirected on arrival. Mirrors
+// An approved applicant is never redirected to the builder. Mirrors
 // src/features/getfeatured/session-status.ts. `data` is the body of
 // GET /api/get-featured/prefill, or null if it couldn't be read.
 const approvedStatusFrom = (data: any): { variant: StatusVariant; handle?: string } => {
@@ -417,9 +415,16 @@ const approvedStatusFrom = (data: any): { variant: StatusVariant; handle?: strin
     if (reviewStatus === "ready_for_review") return { variant: "in_review" }
     // Same rule as the builder's "profile is live" wall.
     if (reviewStatus === "published" && data?.can_edit !== true) return { variant: "live", handle }
-    // A profile row exists only once something has been saved in the builder.
-    return { variant: data?.has_existing_profile ? "continue" : "approved" }
+    // Everyone else who is approved can open the builder, whether or not they
+    // have saved anything yet.
+    return { variant: "continue" }
 }
+
+const fetchApprovedStatus = () =>
+    fetch(APP_URL + "/api/get-featured/prefill", { credentials: "include" })
+        .then((r) => (r.ok ? r.json() : null))
+        .catch(() => null)
+        .then(approvedStatusFrom)
 
 // States with an illustration, a white action and (mostly) a way to switch email.
 const illustratedState = (variant: StatusVariant, handle?: string) => {
@@ -1131,11 +1136,6 @@ function StatusStep({ variant, email, profileHandle, onUseDifferentEmail }) {
                     {email && <p className="tf-s-plainEmail">{email}</p>}
                 </div>
                 <div className="tf-s-buttons">
-                    {variant === "approved" && (
-                        <a href={APP_URL + "/get-featured/create"} className="tf-s-btn tf-s-btnPrimary">
-                            Complete your profile
-                        </a>
-                    )}
                     {variant === "reapply_limit" && (
                         <a
                             href="mailto:hello@travingat.com?subject=Featured%20Application%20Review%20Request"
@@ -1305,7 +1305,7 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
 
     // Returning visitors still signed in on the app see their status (or the
     // prefilled form), like /get-featured does with the server-side session.
-    // Approved users choose to continue; they are not redirected. Silently
+    // Approved users choose to continue; they are never redirected. Silently
     // ignored when the cookie isn't sent.
     useEffect(() => {
         let cancelled = false
@@ -1316,13 +1316,10 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
                 if (cancelled || !u?.email) return
                 setEmail(u.email)
                 setSignedIn(true)
-                let variant = statusVariantFor(data.featured)
-                if (variant === "approved") {
-                    const prefill = await fetch(APP_URL + "/api/get-featured/prefill", { credentials: "include" })
-                        .then((r) => (r.ok ? r.json() : null))
-                        .catch(() => null)
+                let variant: StatusVariant | null = statusVariantFor(data.featured)
+                if (variant === "continue") {
+                    const approved = await fetchApprovedStatus()
                     if (cancelled) return
-                    const approved = approvedStatusFrom(prefill)
                     variant = approved.variant
                     setProfileHandle(approved.handle)
                 }
@@ -1409,9 +1406,8 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
             otp: otp.join(""),
             source: "Get Featured",
         })
-        setIsLoading(false)
-
         if (result.failure) {
+            setIsLoading(false)
             // Wrong code stays inline; an outage gets the full-page screen.
             if (isMajorFailure(result.failure)) reportFailure(result.failure, handleVerifyOtp)
             else setError(result.failure.message)
@@ -1420,19 +1416,27 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
         const res = result.data
 
         const variant = statusVariantFor(res.featured)
-        if (variant === "approved") {
-            bypassLeaveGuard()
-            window.location.href = APP_URL + "/get-featured/create"
-            return
-        }
         if (variant) {
-            // Already applied: don't ask them to apply again.
-            setStatusVariant(variant)
-            setStep("status")
+            // Already applied or approved: don't ask them to apply again.
+            // The button stays busy until the next screen is ready.
+            await showStatus(variant)
+            setIsLoading(false)
             return
         }
+        setIsLoading(false)
         if (res.user || res.explorerCard) prefillFrom(res.user, res.explorerCard)
         setStep("application")
+    }
+
+    const showStatus = async (status: "continue" | "applied") => {
+        let variant: StatusVariant = status
+        if (status === "continue") {
+            const approved = await fetchApprovedStatus()
+            setProfileHandle(approved.handle)
+            variant = approved.variant
+        }
+        setStatusVariant(variant)
+        setStep("status")
     }
 
     const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
@@ -1520,7 +1524,11 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
 
         // Stay on a confirmation screen instead of resetting to an empty
         // form, which made a reload look like they still had to apply.
-        setStatusVariant(res.alreadyApplied ? statusVariantFor(res.featured) ?? "applied" : "submitted")
+        if (res.alreadyApplied) {
+            await showStatus(statusVariantFor(res.featured) ?? "applied")
+            return
+        }
+        setStatusVariant("submitted")
         setStep("status")
     }
 

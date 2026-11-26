@@ -57,16 +57,15 @@ The team sees applications in admin under **Featured Requests**. Approving one s
 
 ### Coming back to the application page
 
-Visiting `/get-featured` (on `app.travingat.com`, or the Framer component on `travingat.com`) with an active session never redirects to the builder. An approved applicant sees a state chosen from `GET /api/get-featured/prefill`:
+The application page (`/get-featured` on `app.travingat.com`, or the Framer component on `travingat.com`) never redirects to the builder, whether the visitor arrives with an active session or has just entered a one-time code. An approved applicant sees a state chosen from `GET /api/get-featured/prefill`, and the builder opens only when they click its button:
 
 | Builder data | Shown |
 | --- | --- |
-| Something saved, still editable | **Continue your profile**, with "Continue editing" and "Use a different email" |
-| Nothing saved yet, or the data can't be read | **You've been selected!**, with "Complete your profile" |
+| Still editable (whether or not anything is saved), or the data can't be read | **Continue your profile**, with "Continue editing" and "Use a different email" |
 | `ready_for_review` | **Your profile has been submitted!** |
 | `published` and locked (`can_edit` false) | **Your profile is live**, with a link to it |
 
-Entering a one-time code on that page still opens the builder for an approved email. The rules live in `features/getfeatured/session-status.ts` and are mirrored in the Framer component. The illustrations are in `landing/public/icons/get-featured/`.
+The rules live in `features/getfeatured/session-status.ts` and are mirrored in the Framer component. The illustrations are in `landing/public/icons/get-featured/`.
 
 ### The approval link
 
@@ -106,6 +105,7 @@ flowchart TD
 | **Collections** | Albums with a title, description, countries and photos (up to 30 per collection) |
 
 - **Save & Exit** keeps everything, and the creator picks up where they left off.
+- **Back on the first step** (or the browser's back button) asks "Leave the application?". **Leave** signs the creator out and goes to `travingat.com/get-featured`.
 - **Change requests:** if the team asked for changes, the reason is shown in the wizard.
 - **Editing a live profile:** submitting the edits sends it back for review. Re-saving a profile never deletes photos it already has; only the sections being changed are replaced.
 
