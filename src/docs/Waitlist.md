@@ -3,7 +3,7 @@ title: Waitlist & Early Access
 description: How early-access signups are captured, confirmed and tracked, what each waitlist entry records, and how it connects to user accounts and the Get Featured funnel.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-09
+updatedAt: 2026-11-27
 ---
 
 # Waitlist & Early Access
@@ -23,7 +23,7 @@ flowchart LR
 ## 1. Signing up
 
 1. **Submit:** the visitor enters an email (`POST /api/waitlist`). The entry is created unconfirmed, with a confirmation token.
-2. **Confirm:** a "Confirm your spot" email links to `app.travingat.com/waitlist/confirm?token=…`. Clicking it confirms the entry.
+2. **Confirm:** a "Confirm your spot" email links to `app.travingat.com/waitlist/confirm?token=…`. Clicking it confirms the entry. The link was sent to one address, so it follows the session rule (Architecture, section 7): anyone else signed in on that browser is signed out first, and the **first** confirmation also signs the address in, so "Create explorer card" on the next page continues as that address. Opening an already confirmed or expired link signs nobody in; creating a card then asks for the email and a code. The landing route asks `POST /api/waitlist/confirm-info` whose link it is before confirming (`POST /api/waitlist/confirm` with `sign_in`).
 3. **Welcome:** a "Welcome to Travingat" email is sent once per person, whichever way they arrive (waitlist confirmation or Get Featured). `welcome_email_sent_at` stops it being sent twice.
 4. **Context:** browser, device, country, city and IP are recorded automatically.
 5. **Repeat signups:** an email that's already confirmed gets a "you're already on the list" response. An unconfirmed one gets a fresh confirmation email instead of a duplicate entry.
