@@ -44,12 +44,14 @@ export default function MediaEngineView() {
   const [queueStatusFilter, setQueueStatusFilter] = useState('');
   const [queueJobTypeFilter, setQueueJobTypeFilter] = useState('');
   const [queueSearch, setQueueSearch] = useState('');
+  const [queueSort, setQueueSort] = useState('');
 
   // Assets state
   const [assetsPage, setAssetsPage] = useState(1);
   const [assetsTypeFilter, setAssetsTypeFilter] = useState('');
   const [assetsStatusFilter, setAssetsStatusFilter] = useState('');
   const [assetsSearch, setAssetsSearch] = useState('');
+  const [assetsSort, setAssetsSort] = useState('-created_at');
 
   // Orphans state
   const [orphanResult, setOrphanResult] = useState<OrphanScanResult | null>(null);
@@ -129,6 +131,7 @@ export default function MediaEngineView() {
       queueStatusFilter,
       queueJobTypeFilter,
       queueSearch,
+      queueSort,
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -137,6 +140,7 @@ export default function MediaEngineView() {
       if (queueStatusFilter) params.set('status', queueStatusFilter);
       if (queueJobTypeFilter) params.set('job_type', queueJobTypeFilter);
       if (queueSearch) params.set('search', queueSearch);
+      if (queueSort) params.set('ordering', queueSort);
 
       const res = await fetch(`/api/media-engine/queue?${params.toString()}`);
       if (!res.ok) {
@@ -163,6 +167,7 @@ export default function MediaEngineView() {
       assetsTypeFilter,
       assetsStatusFilter,
       assetsSearch,
+      assetsSort,
     ],
     queryFn: async () => {
       const params = new URLSearchParams();
@@ -171,6 +176,7 @@ export default function MediaEngineView() {
       if (assetsTypeFilter) params.set('media_type', assetsTypeFilter);
       if (assetsStatusFilter) params.set('status', assetsStatusFilter);
       if (assetsSearch) params.set('search', assetsSearch);
+      params.set('ordering', assetsSort);
 
       const res = await fetch(`/api/media-engine/assets?${params.toString()}`);
       if (!res.ok) throw new Error('Failed to load assets');
@@ -821,6 +827,11 @@ export default function MediaEngineView() {
                 setQueueJobTypeFilter(t);
                 setQueuePage(1);
               }}
+              sortOrder={queueSort}
+              onSortOrderChange={(o) => {
+                setQueueSort(o);
+                setQueuePage(1);
+              }}
               searchQuery={queueSearch}
               onSearchChange={(q) => {
                 setQueueSearch(q);
@@ -866,6 +877,11 @@ export default function MediaEngineView() {
               statusFilter={assetsStatusFilter}
               onStatusFilterChange={(s) => {
                 setAssetsStatusFilter(s);
+                setAssetsPage(1);
+              }}
+              sortOrder={assetsSort}
+              onSortOrderChange={(o) => {
+                setAssetsSort(o);
                 setAssetsPage(1);
               }}
               searchQuery={assetsSearch}

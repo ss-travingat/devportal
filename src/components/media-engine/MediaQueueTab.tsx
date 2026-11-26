@@ -7,6 +7,7 @@ import {
   RotateCcw,
   Search,
   Filter,
+  ArrowUpDown,
   CheckCircle2,
   Clock,
   AlertCircle,
@@ -31,6 +32,8 @@ interface MediaQueueTabProps {
   onStatusFilterChange: (status: string) => void;
   jobTypeFilter: string;
   onJobTypeFilterChange: (type: string) => void;
+  sortOrder: string;
+  onSortOrderChange: (order: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onRetryJob: (jobId: string) => Promise<void>;
@@ -117,6 +120,8 @@ export default function MediaQueueTab({
   onStatusFilterChange,
   jobTypeFilter,
   onJobTypeFilterChange,
+  sortOrder,
+  onSortOrderChange,
   searchQuery,
   onSearchChange,
   onRetryJob,
@@ -175,6 +180,20 @@ export default function MediaQueueTab({
               <option value="VIDEO_PROCESSING">Video Pipeline</option>
             </select>
             <Filter className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          <div className="relative">
+            <select
+              aria-label="Sort by date"
+              value={sortOrder}
+              onChange={(e) => onSortOrderChange(e.target.value)}
+              className="px-3 py-1.5 bg-zinc-800/90 hover:bg-zinc-800 border border-zinc-700/80 rounded-lg text-xs text-zinc-200 outline-none cursor-pointer pr-7 appearance-none"
+            >
+              <option value="">Processing first</option>
+              <option value="-created_at">Newest first</option>
+              <option value="created_at">Oldest first</option>
+            </select>
+            <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
 
           <div className="relative min-w-[200px] flex-1 sm:flex-initial">

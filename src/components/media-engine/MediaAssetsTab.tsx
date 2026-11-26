@@ -6,6 +6,7 @@ import { formatBytes, formatDate, get720pThumbnailUrl } from '@/lib/media-utils'
 import {
   Search,
   Filter,
+  ArrowUpDown,
   LayoutGrid,
   List,
   Image as ImageIcon,
@@ -32,6 +33,8 @@ interface MediaAssetsTabProps {
   onMediaTypeFilterChange: (type: string) => void;
   statusFilter: string;
   onStatusFilterChange: (status: string) => void;
+  sortOrder: string;
+  onSortOrderChange: (order: string) => void;
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onSelectAsset: (asset: EngineAsset) => void;
@@ -137,6 +140,8 @@ export default function MediaAssetsTab({
   onMediaTypeFilterChange,
   statusFilter,
   onStatusFilterChange,
+  sortOrder,
+  onSortOrderChange,
   searchQuery,
   onSearchChange,
   onSelectAsset,
@@ -188,6 +193,20 @@ export default function MediaAssetsTab({
               <option value="ERROR">Error</option>
             </select>
             <Filter className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+          </div>
+
+          {/* Sort by upload date */}
+          <div className="relative">
+            <select
+              aria-label="Sort by date"
+              value={sortOrder}
+              onChange={(e) => onSortOrderChange(e.target.value)}
+              className="px-3 py-1.5 bg-zinc-800/90 hover:bg-zinc-800 border border-zinc-700/80 rounded-lg text-xs text-zinc-200 outline-none cursor-pointer pr-7 appearance-none"
+            >
+              <option value="-created_at">Newest first</option>
+              <option value="created_at">Oldest first</option>
+            </select>
+            <ArrowUpDown className="w-3.5 h-3.5 text-zinc-400 absolute right-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
           </div>
         </div>
 
@@ -351,6 +370,10 @@ export default function MediaAssetsTab({
                     ) : (
                       <span className="text-zinc-600">—</span>
                     )}
+                  </div>
+
+                  <div className="text-[10px] font-mono text-zinc-500">
+                    {formatDate(asset.created_at)}
                   </div>
                 </div>
               </div>
