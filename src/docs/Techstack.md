@@ -3,7 +3,7 @@ title: Architecture — Production Infrastructure
 description: How Travingat runs in production — services and domains, the Contabo host and its containers, the database and backups, storage buckets, background jobs, and security settings.
 category: Architecture
 author: Travingat Engineering
-updatedAt: 2026-11-26
+updatedAt: 2026-11-27
 ---
 
 # Architecture — Production Infrastructure
@@ -144,6 +144,19 @@ Browsers upload straight to R2 with presigned URLs, so files never pass through 
 
 **Cookies and sessions**
 - Creator login: one-time email code, then JWT `access_token` / `refresh_token` cookies (`HttpOnly`, `SameSite=Lax`).
+- Which account a link continues as is one rule across the product (landing `src/lib/auth-session.ts`):
+
+  | Scenario | Behaviour |
+  | :--- | :--- |
+  | Generic button (marketing site, "Create explorer card"), nobody signed in | Ask for the email, verify with a one-time code |
+  | Generic button, someone signed in | Continue as them; the Explorer Card create and edit screens show **Not you?** next to the email |
+  | Link emailed to one person, nobody signed in | A valid link signs that email in by itself (one use); otherwise a code |
+  | Link emailed to one person, that email signed in | Continue; the link is left unused |
+  | Link emailed to one person, a different email signed in | That session is ended on the server and every copy of its cookies expired, then as above. A Get Featured link asks the invited email for a code instead (the link stays unused) |
+  | **Not you?** | Ends the session (`POST /auth/signout` on the landing app) and goes to `travingat.com/explorer-card` to start again |
+  | Link used, expired or unknown | Signed out; the link's email verifies with a code, prefilled (unknown link: plain sign-in) |
+
+  The person-specific links are the waitlist "Confirm my spot" link (`/waitlist/confirm`) and every sign-in link the backend issues with `users/magic_links.issue_magic_link` (`/auth/link?token=…`): the Get Featured approval email, "changes requested", and "Your Explorer Card is Ready". Each token (`MagicLinkToken`) has a `purpose` that picks the destination from a fixed list in the landing app, so a link never carries its own redirect. Older approval emails link to `/get-featured/auth`, which runs the same handler. Pages never decide this themselves: a page can't set cookies, so the link's route handler has already made the session the right one by the time a page reads it.
 - Admin and devportal login: a signed `admin_session` cookie issued by the backend (`HttpOnly`, `SameSite=Lax`, 24 hours).
 - Django's own session and CSRF cookies: `SameSite=Strict`, `Secure` in production.
 

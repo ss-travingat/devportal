@@ -3,7 +3,7 @@ title: Explorer Cards — Shareable Travel Passport
 description: How a traveler creates, edits and shares an Explorer Card, what the card stores versus what it reads from the user, and how card and profile photos and countries relate.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-24
+updatedAt: 2026-11-27
 ---
 
 # Explorer Cards — Shareable Travel Passport
@@ -33,9 +33,11 @@ flowchart LR
    Each style can have its own cover crop, so all three styles look intentional.
 3. On submit:
    - the card is saved and its photos are queued for optimisation;
-   - an email ("Your Explorer Card is Ready") with an edit link is sent the first time the card is created, at most once every 30 minutes.
+   - an email ("Your Explorer Card is Ready") is sent the first time the card is created, at most once every 30 minutes. Its edit button is a one-time sign-in link for the owner (`/auth/link?token=…`, 7 days), never a bare page: on a shared browser it signs anyone else out and opens the owner's card. Once used or expired it asks the owner's email for a code, prefilled (`/join/explorercard?email=…`).
 
-Each person has **one card**. Coming back to create one opens the existing card for editing (`/edit/explorercard`, or `/join/explorercard` from the email).
+Each person has **one card**. Coming back to create one opens the existing card for editing (`/edit/explorercard`).
+
+The create and edit screens show **Not you?** to the right of the Email label. It ends the session (server and cookies, nothing saved) and goes to `travingat.com/explorer-card` to start again with another email. Which account each link continues as is described in Architecture, section 7.
 
 If the person already has a Featured Profile, the form is prefilled from it: name, country, countries and photos.
 

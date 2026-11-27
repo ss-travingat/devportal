@@ -3,7 +3,7 @@ title: Get Featured — Creator Application & Profile Builder
 description: The path from applying to a published Featured Profile — the status lifecycle, the application, the profile-builder wizard, photo uploads, and admin review with its emails.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-26
+updatedAt: 2026-11-27
 ---
 
 # Get Featured — Creator Application & Profile Builder
@@ -69,7 +69,7 @@ The rules live in `features/getfeatured/session-status.ts` and are mirrored in t
 
 ### The approval link
 
-The link is `app.travingat.com/get-featured/auth?token=…`, a one-time token that lasts 7 days (sending the email again replaces it). It signs in the email it was sent to, never whichever account is signed in on that browser, and **always ends on `travingat.com/get-featured`**, which shows **Continue your profile**. The builder opens only from "Continue editing", at the last saved step.
+The link is `app.travingat.com/auth/link?token=…` (emails sent before 2026-11-27: `/get-featured/auth?token=…`, same handler), a one-time token that lasts 7 days (sending the email again replaces it). The "changes requested" email's **Update your profile** button uses the same kind of link. It signs in the email it was sent to, never whichever account is signed in on that browser, and **always ends on `travingat.com/get-featured`**, which shows **Continue your profile**. The builder opens only from "Continue editing", at the last saved step.
 
 | On the browser | Opening the link |
 | --- | --- |
@@ -81,7 +81,7 @@ The link is `app.travingat.com/get-featured/auth?token=…`, a one-time token th
 
 For the code cases the email is passed as `#email=…`, which stays in the browser; the Framer component fills it in and removes it from the address bar. On any host other than `app.travingat.com` (local, test servers) the link ends on that app's own `/get-featured` instead.
 
-The landing route asks the backend which email a token belongs to first (`POST /api/auth/magic-link-info`, which doesn't use it up), and it expires every copy of the session cookies (host-only and `Domain=.travingat.com`) before setting new ones. A browser holding both used to send the older one first, so the link could land in the previous account.
+This is the product-wide session rule (Architecture, section 7). The landing route asks the backend which email a token belongs to first (`POST /api/auth/magic-link-info`, which doesn't use it up), and it expires every copy of the session cookies (host-only and `Domain=.travingat.com`) before setting new ones. A browser holding both used to send the older one first, so the link could land in the previous account.
 
 ---
 
