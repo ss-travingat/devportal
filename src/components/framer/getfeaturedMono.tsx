@@ -407,19 +407,24 @@ const STATUS_COPY: Record<StatusVariant, { title: string; body: string }> = {
     },
 }
 
-// An approved applicant is never redirected to the builder. Mirrors
-// src/features/getfeatured/session-status.ts. `data` is the body of
-// GET /api/get-featured/prefill, or null if it couldn't be read.
-const approvedStatusFrom = (data: any): { variant: StatusVariant; handle?: string } => {
+// Mirrors src/features/getfeatured/session-status.ts. `data` is the body of
+// GET /api/get-featured/prefill, or null if it couldn't be read. "start":
+// approved but nothing saved in the builder yet, so they go straight into it.
+const approvedStatusFrom = (data: any): { variant: StatusVariant | "start"; handle?: string } => {
     const reviewStatus = data?.prefill?.review_status
     const handle = String(data?.prefill?.handle || "").replace(/^@/, "") || undefined
     if (reviewStatus === "ready_for_review") return { variant: "in_review" }
     // Same rule as the builder's "profile is live" wall.
     if (reviewStatus === "published" && data?.can_edit !== true) return { variant: "live", handle }
-    // Everyone else who is approved can open the builder, whether or not they
-    // have saved anything yet.
+    // Approving an application doesn't create a profile; the builder's first
+    // save does. No profile means nothing to continue: open the builder.
+    if (data?.has_existing_profile === false) return { variant: "start" }
+    // Saved progress (or the data couldn't be read): the "Continue your
+    // profile" card, whose button opens the builder.
     return { variant: "continue" }
 }
+
+const BUILDER_URL = APP_URL + "/get-featured/create"
 
 const fetchApprovedStatus = () =>
     fetch(APP_URL + "/api/get-featured/prefill", { credentials: "include" })
@@ -435,7 +440,7 @@ const illustratedState = (variant: StatusVariant, handle?: string) => {
         case "applied":
             return { icon: statusIcon("already-applied"), action: "Explore profiles", href: PROFILES_URL, switchEmail: "Apply with a different email" }
         case "continue":
-            return { icon: statusIcon("saved-progress"), action: "Continue editing", href: APP_URL + "/get-featured/create", switchEmail: "Use a different email" }
+            return { icon: statusIcon("saved-progress"), action: "Continue editing", href: BUILDER_URL, switchEmail: "Use a different email" }
         case "in_review":
             return { icon: statusIcon("all-set"), action: "Explore profiles", href: PROFILES_URL, switchEmail: "Use a different email" }
         case "live":
@@ -1422,8 +1427,9 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
 
     // Returning visitors still signed in on the app see their status (or the
     // prefilled form), like /get-featured does with the server-side session.
-    // Approved users choose to continue; they are never redirected. Silently
-    // ignored when the cookie isn't sent.
+    // Approved users with saved progress choose to continue; with nothing
+    // saved yet they go straight into the builder. Silently ignored when the
+    // cookie isn't sent.
     useEffect(() => {
         let cancelled = false
         // The approval email's link sends someone who has to verify here, with
@@ -1444,6 +1450,10 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
                 if (variant === "continue") {
                     const approved = await fetchApprovedStatus()
                     if (cancelled) return
+                    if (approved.variant === "start") {
+                        window.location.href = BUILDER_URL
+                        return
+                    }
                     variant = approved.variant
                     setProfileHandle(approved.handle)
                 }
@@ -1556,6 +1566,12 @@ const GetFeaturedFlow = ({ notifyError, reportFailure }) => {
         let variant: StatusVariant = status
         if (status === "continue") {
             const approved = await fetchApprovedStatus()
+            if (approved.variant === "start") {
+                // Approved with nothing saved yet: straight into the builder.
+                bypassLeaveGuard()
+                window.location.href = BUILDER_URL
+                return
+            }
             setProfileHandle(approved.handle)
             variant = approved.variant
         }

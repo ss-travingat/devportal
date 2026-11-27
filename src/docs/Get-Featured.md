@@ -3,7 +3,7 @@ title: Get Featured — Creator Application & Profile Builder
 description: The path from applying to a published Featured Profile — the status lifecycle, the application, the profile-builder wizard, photo uploads, and admin review with its emails.
 category: Product
 author: Travingat Engineering
-updatedAt: 2026-11-27
+updatedAt: 2026-11-28
 ---
 
 # Get Featured — Creator Application & Profile Builder
@@ -57,11 +57,12 @@ The team sees applications in admin under **Featured Requests**. Approving one s
 
 ### Coming back to the application page
 
-The application page (`/get-featured` on `app.travingat.com`, or the Framer component on `travingat.com`) never redirects to the builder, whether the visitor arrives with an active session or has just entered a one-time code. An approved applicant sees a state chosen from `GET /api/get-featured/prefill`, and the builder opens only when they click its button:
+On the application page (`/get-featured` on `app.travingat.com`, or the Framer component on `travingat.com`), an approved applicant gets what `GET /api/get-featured/prefill` says, whether they arrive with an active session or have just entered a one-time code. Approving an application doesn't create a profile (the builder's first save does), so `has_existing_profile` false means nothing has been saved yet:
 
 | Builder data | Shown |
 | --- | --- |
-| Still editable (whether or not anything is saved), or the data can't be read | **Continue your profile**, with "Continue editing" and "Use a different email" |
+| Nothing saved yet (`has_existing_profile` false) | No status: straight into the builder (`/get-featured/create`) |
+| Saved progress and still editable, or the data can't be read | **Continue your profile**, with "Continue editing" and "Use a different email" |
 | `ready_for_review` | **Your profile has been submitted!** |
 | `published` and locked (`can_edit` false) | **Your profile is live**, with a link to it |
 
@@ -69,11 +70,11 @@ The rules live in `features/getfeatured/session-status.ts` and are mirrored in t
 
 ### The approval link
 
-The link is `app.travingat.com/auth/link?token=…` (emails sent before 2026-11-27: `/get-featured/auth?token=…`, same handler), a one-time token that lasts 7 days (sending the email again replaces it). The "changes requested" email's **Update your profile** button uses the same kind of link. It signs in the email it was sent to, never whichever account is signed in on that browser, and **always ends on `travingat.com/get-featured`**, which shows **Continue your profile**. The builder opens only from "Continue editing", at the last saved step.
+The link is `app.travingat.com/auth/link?token=…` (emails sent before 2026-11-27: `/get-featured/auth?token=…`, same handler), a one-time token that lasts 7 days (sending the email again replaces it). The "changes requested" email's **Update your profile** button uses the same kind of link. It signs in the email it was sent to, never whichever account is signed in on that browser. Once that email is signed in, a **newly approved applicant (nothing saved yet) goes straight into the builder**; anyone with saved progress, a submitted or a live profile lands on `travingat.com/get-featured` and its status (**Continue your profile** opens the builder at the last saved step). If the builder data can't be read, the link lands on the page.
 
 | On the browser | Opening the link |
 | --- | --- |
-| The invited email already signed in | Straight to the page; the token stays unused |
+| The invited email already signed in | Straight on (the builder, or the page if there's saved progress); the token stays unused |
 | A different email signed in | Signs it out (its session ends on the server too) and asks the invited email for a one-time code, prefilled. The token stays unused |
 | Nobody signed in, link unused | Signs the invited email in (the token is used up). No code: the link proves the email |
 | Nobody signed in, link already used or expired | Asks the invited email for a one-time code, prefilled |
