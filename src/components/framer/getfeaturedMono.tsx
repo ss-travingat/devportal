@@ -10,7 +10,8 @@
 // Self-contained — paste this whole file into a new Framer code component.
 // Talks to https://app.travingat.com; images, fonts and flag icons load from
 // CDNs, so nothing else needs installing in Framer.
-import React, { useState, useRef, useEffect } from "react"
+import React, { useState, useRef, useEffect, useLayoutEffect, useId } from "react"
+import { createPortal } from "react-dom"
 
 // The Framer site lives on a different origin, so every call goes to the app.
 const APP_URL = "https://app.travingat.com"
@@ -907,6 +908,117 @@ function LinkAutocomplete({
     )
 }
 
+// Mirrors InfoTooltip (src/components/ui/InfoTooltip.tsx): opens on hover,
+// keyboard focus or tap. The bubble is portalled to <body> because the form
+// card clips its overflow.
+function InfoTooltip({ title, children }) {
+    const [open, setOpen] = useState(false)
+    const [position, setPosition] = useState(null)
+    const buttonRef = useRef(null)
+    const bubbleRef = useRef(null)
+    const timer = useRef(null)
+    const wasOpenOnPress = useRef(false)
+    const pressedByTouch = useRef(false)
+    const id = useId()
+
+    const show = (next, delay = 0) => {
+        clearTimeout(timer.current)
+        if (delay) timer.current = setTimeout(() => setOpen(next), delay)
+        else setOpen(next)
+    }
+    useEffect(() => () => clearTimeout(timer.current), [])
+
+    // Above the icon, or below it when there's no room; 16px from the edges.
+    useLayoutEffect(() => {
+        if (!open) return setPosition(null)
+        const icon = buttonRef.current.getBoundingClientRect()
+        const { offsetWidth: width, offsetHeight: height } = bubbleRef.current
+        const center = icon.left + icon.width / 2
+        const maxLeft = document.documentElement.clientWidth - width - 16
+        const left = Math.max(16, Math.min(center - width / 2, maxLeft))
+        const below = icon.top - height - 12 < 16
+        setPosition({
+            left,
+            top: below ? icon.bottom + 12 : icon.top - height - 12,
+            arrow: center - left,
+            below,
+        })
+    }, [open])
+
+    useEffect(() => {
+        if (!open) return
+        const close = () => setOpen(false)
+        const onPointerDown = (e) => {
+            if (!buttonRef.current?.contains(e.target) && !bubbleRef.current?.contains(e.target)) close()
+        }
+        const onKeyDown = (e) => e.key === "Escape" && close()
+        document.addEventListener("pointerdown", onPointerDown)
+        document.addEventListener("keydown", onKeyDown)
+        window.addEventListener("scroll", close, true)
+        window.addEventListener("resize", close)
+        return () => {
+            document.removeEventListener("pointerdown", onPointerDown)
+            document.removeEventListener("keydown", onKeyDown)
+            window.removeEventListener("scroll", close, true)
+            window.removeEventListener("resize", close)
+        }
+    }, [open])
+
+    return (
+        <>
+            <button
+                ref={buttonRef}
+                type="button"
+                aria-label={title}
+                aria-describedby={open ? id : undefined}
+                className="tf-info"
+                onPointerEnter={(e) => e.pointerType !== "touch" && show(true, 100)}
+                onPointerLeave={(e) => e.pointerType !== "touch" && show(false, 100)}
+                onPointerDown={(e) => {
+                    e.preventDefault()
+                    wasOpenOnPress.current = open
+                    pressedByTouch.current = e.pointerType === "touch"
+                }}
+                onClick={(e) => {
+                    e.preventDefault()
+                    show(!(pressedByTouch.current && wasOpenOnPress.current))
+                    pressedByTouch.current = false
+                }}
+                onFocus={() => show(true)}
+                onBlur={() => show(false)}
+            >
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true" xmlns="http://www.w3.org/2000/svg">
+                    <circle cx="12" cy="12" r="9" stroke="currentColor" strokeWidth="1.5" />
+                    <path d="M12 11v5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
+                    <circle cx="12" cy="8" r="1" fill="currentColor" />
+                </svg>
+            </button>
+            {open &&
+                createPortal(
+                    <div
+                        ref={bubbleRef}
+                        id={id}
+                        role="tooltip"
+                        className="tf-tip"
+                        style={position ? { left: position.left, top: position.top } : { visibility: "hidden" }}
+                        onPointerEnter={() => clearTimeout(timer.current)}
+                        onPointerLeave={(e) => e.pointerType !== "touch" && show(false, 100)}
+                    >
+                        <div className="tf-tipTitle">{title}</div>
+                        <div>{children}</div>
+                        {position && (
+                            <span
+                                className={`tf-tipArrow${position.below ? " tf-tipArrowUp" : ""}`}
+                                style={{ left: position.arrow }}
+                            />
+                        )}
+                    </div>,
+                    document.body
+                )}
+        </>
+    )
+}
+
 function FormStep({
     email, firstName, setFirstName, lastName, setLastName, selectedCountry, setSelectedCountry,
     visitedCount, setVisitedCount, linkInput, setLinkInput, links, setLinks, linkCheckResults,
@@ -918,7 +1030,12 @@ function FormStep({
     return (
         <div className="tf-f-parent">
             <div className="tf-f-field">
-                <div className="tf-f-label">Full name</div>
+                <div className="tf-f-label">
+                    Full name
+                    <InfoTooltip title="Full name">
+                        You can use your real name or a preferred name. Both fields are required for our profile designs.
+                    </InfoTooltip>
+                </div>
                 <div className="tf-f-row">
                     <input
                         type="text"
@@ -1937,6 +2054,49 @@ const CSS = `
   word-wrap: break-word;
   text-align: left;
 }
+.tf-info {
+  position: relative;
+  display: inline-flex;
+  width: 16px;
+  height: 16px;
+  margin: 2px 0 0 6px;
+  vertical-align: top;
+  color: #7c7c7c;
+  cursor: pointer;
+  transition: color 0.15s;
+}
+.tf-info:hover { color: #fff; }
+.tf-info::after { content: ""; position: absolute; inset: -8px; }
+.tf-tip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 1000;
+  box-sizing: border-box;
+  width: 300px;
+  max-width: calc(100vw - 32px);
+  padding: 12px;
+  border-radius: 8px;
+  background: #161616;
+  color: #fff;
+  font-family: Inter, "Segoe UI", sans-serif;
+  font-weight: 500;
+  font-size: 12px;
+  line-height: 16px;
+  text-align: left;
+  box-shadow: 0 12px 16px rgba(16, 24, 40, 0.08), 0 4px 6px rgba(16, 24, 40, 0.03);
+}
+.tf-tipTitle { margin-bottom: 8px; font-weight: 700; }
+.tf-tipArrow {
+  position: absolute;
+  top: 100%;
+  width: 16px;
+  height: 6px;
+  margin-left: -8px;
+  background: #030712;
+  clip-path: polygon(0 0, 100% 0, 50% 100%);
+}
+.tf-tipArrowUp { top: auto; bottom: 100%; transform: rotate(180deg); }
 .tf-f-row {
   align-self: stretch;
   width: 100%;
