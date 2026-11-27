@@ -1005,7 +1005,7 @@ function InfoTooltip({ title, children }) {
                         onPointerLeave={(e) => e.pointerType !== "touch" && show(false, 100)}
                     >
                         <div className="tf-tipTitle">{title}</div>
-                        <div>{children}</div>
+                        <div className="tf-tipBody">{children}</div>
                         {position && (
                             <span
                                 className={`tf-tipArrow${position.below ? " tf-tipArrowUp" : ""}`}
@@ -2077,8 +2077,8 @@ const CSS = `
   max-width: calc(100vw - 32px);
   padding: 12px;
   border-radius: 8px;
-  background: #161616;
-  color: #fff;
+  background: #fff;
+  color: #161616;
   font-family: Inter, "Segoe UI", sans-serif;
   font-weight: 500;
   font-size: 12px;
@@ -2087,13 +2087,14 @@ const CSS = `
   box-shadow: 0 12px 16px rgba(16, 24, 40, 0.08), 0 4px 6px rgba(16, 24, 40, 0.03);
 }
 .tf-tipTitle { margin-bottom: 8px; font-weight: 700; }
+.tf-tipBody { color: #576072; }
 .tf-tipArrow {
   position: absolute;
   top: 100%;
   width: 16px;
   height: 6px;
   margin-left: -8px;
-  background: #030712;
+  background: #fff;
   clip-path: polygon(0 0, 100% 0, 50% 100%);
 }
 .tf-tipArrowUp { top: auto; bottom: 100%; transform: rotate(180deg); }
